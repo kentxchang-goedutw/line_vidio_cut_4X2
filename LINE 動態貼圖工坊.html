@@ -1,0 +1,1795 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LINE 動態貼圖工坊 - 馬卡龍甜點版 (GIF轉換 + 智慧去背 + 網格切割)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts Inter & Nunito for friendly pastel aesthetics -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- Pako (Zlib compression for UPNG) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+  <!-- UPNG.js (High performance APNG & Quantized PNG encoder) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/upng-js/2.1.0/UPNG.min.js"></script>
+  <!-- JSZip for 1-click batch download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- FileSaver.js for reliable downloads -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Nunito', 'system-ui', 'sans-serif'],
+          },
+          colors: {
+            macaron: {
+              pink: '#FDE2E4',
+              pinkDark: '#E07A8B',
+              rose: '#FFCAD4',
+              mint: '#D8F3DC',
+              mintDark: '#52B788',
+              teal: '#B7E4C7',
+              butter: '#FFF3B0',
+              butterDark: '#E09F3E',
+              lavender: '#E2ECE9',
+              purple: '#E8D7F1',
+              purpleDark: '#9F86C0',
+              peach: '#FEE1C7',
+              peachDark: '#FA824C',
+              cream: '#FFFDF9',
+              dark: '#4A4E69',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* 馬卡龍棋盤格透明背景 */
+    .checkerboard {
+      background-image: linear-gradient(45deg, #fce7f3 25%, transparent 25%),
+                        linear-gradient(-45deg, #fce7f3 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #fce7f3 75%),
+                        linear-gradient(-45deg, transparent 75%, #fce7f3 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    }
+    .eyedropper-active {
+      cursor: crosshair !important;
+    }
+    .split-line-v { cursor: col-resize; }
+    .split-line-h { cursor: row-resize; }
+    /* 自訂柔美滾動條 */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #fdf2f8; }
+    ::-webkit-scrollbar-thumb { background: #fbcfe8; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #f472b6; }
+  </style>
+</head>
+<body class="bg-[#FFFDF9] text-[#4A4E69] min-h-screen flex flex-col font-sans antialiased selection:bg-pink-300 selection:text-white">
+
+  <!-- 頂部馬卡龍導覽列 -->
+  <header class="bg-white/90 backdrop-blur-md border-b border-pink-100 sticky top-0 z-40 shadow-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-300 via-rose-300 to-teal-200 flex items-center justify-center text-white shadow-md shadow-pink-100 shrink-0 text-xl font-black">
+          🍬
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-black text-[#3D3A45] tracking-tight flex items-center gap-2">
+            LINE 動態貼圖工坊
+            <span class="text-xs px-2.5 py-0.5 rounded-full bg-pink-100 text-pink-600 font-bold border border-pink-200 hidden sm:inline">馬卡龍精靈版</span>
+          </h1>
+          <p class="text-xs text-[#8A817C] hidden sm:block">影片預覽 ➔ 手動轉GIF ➔ 智慧吸管去背 ➔ 網格分割 ➔ 導出官方 APNG ZIP</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="https://kentxchang.blogspot.tw" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs text-pink-600 hover:text-pink-700 font-bold px-3 py-1.5 rounded-xl bg-pink-50 hover:bg-pink-100 transition border border-pink-200">
+          <span>Made by</span>
+          <span class="underline decoration-pink-300 underline-offset-2">阿剛老師</span>
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+        </a>
+        <button id="demoBtn" class="text-xs font-bold px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition flex items-center gap-1.5 border border-emerald-200 shadow-xs">
+          <span>🍰</span>
+          載入示範動畫
+        </button>
+      </div>
+    </div>
+  </header>
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col gap-6 w-full">
+    
+    <!-- 馬卡龍 4 步驟切換指示標籤 -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-2.5 rounded-3xl border border-pink-100 shadow-xs">
+      <!-- 步驟 1 標籤 -->
+      <button id="stepTab1" class="step-nav-btn flex items-center gap-2.5 p-3 rounded-2xl bg-pink-100/90 text-pink-700 font-extrabold text-xs transition border border-pink-200 shadow-xs" onclick="goToStep(1)">
+        <span class="w-6 h-6 rounded-full bg-pink-400 text-white flex items-center justify-center text-xs font-black shadow-xs">1</span>
+        <div class="text-left leading-tight">
+          <div class="text-[10px] text-pink-500 font-medium">STEP 1</div>
+          <div class="truncate">影片預覽 & 轉檔</div>
+        </div>
+      </button>
+
+      <!-- 步驟 2 標籤 -->
+      <button id="stepTab2" class="step-nav-btn flex items-center gap-2.5 p-3 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs transition border border-transparent" onclick="goToStep(2)">
+        <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-black">2</span>
+        <div class="text-left leading-tight">
+          <div class="text-[10px] text-slate-400 font-medium">STEP 2</div>
+          <div class="truncate">智慧吸管去背</div>
+        </div>
+      </button>
+
+      <!-- 步驟 3 標籤 -->
+      <button id="stepTab3" class="step-nav-btn flex items-center gap-2.5 p-3 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs transition border border-transparent" onclick="goToStep(3)">
+        <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-black">3</span>
+        <div class="text-left leading-tight">
+          <div class="text-[10px] text-slate-400 font-medium">STEP 3</div>
+          <div class="truncate">網格拖曳分割</div>
+        </div>
+      </button>
+
+      <!-- 步驟 4 標籤 -->
+      <button id="stepTab4" class="step-nav-btn flex items-center gap-2.5 p-3 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs transition border border-transparent" onclick="goToStep(4)">
+        <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-black">4</span>
+        <div class="text-left leading-tight">
+          <div class="text-[10px] text-slate-400 font-medium">STEP 4</div>
+          <div class="truncate">官方 APNG 打包</div>
+        </div>
+      </button>
+    </div>
+
+    <!-- 上傳拖曳區 (尚未選擇影片時顯示) -->
+    <div id="uploadDropzone" class="border-3 border-dashed border-pink-200 hover:border-pink-400 bg-pink-50/40 hover:bg-pink-50/80 transition-all duration-300 rounded-3xl p-12 flex flex-col items-center justify-center text-center cursor-pointer shadow-sm group">
+      <input type="file" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime,image/gif" class="hidden" />
+      <div class="w-20 h-20 mb-4 rounded-3xl bg-pink-100 text-pink-500 flex items-center justify-center text-3xl group-hover:scale-110 transition duration-300 shadow-sm shadow-pink-200">
+        🎬
+      </div>
+      <h3 class="text-lg font-black text-[#3D3A45] mb-1">點擊此處或拖曳貼圖動畫影片 (.mp4 / .webm) 至此</h3>
+      <p class="text-xs text-[#8A817C] max-w-md mb-4 leading-relaxed">
+        載入後將<span class="font-bold text-pink-600">先即時播放預覽</span>，您可以確認無誤後再手動點選生成原始 GIF 檔並進行去背與分割！
+      </p>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-white text-pink-600 border border-pink-200 shadow-xs">🍓 純瀏覽器本機極速安全處理</span>
+      </div>
+    </div>
+    <!-- 步驟 1 內容區塊：影片預覽與手動轉檔 -->
+    <div id="stepSection1" class="hidden flex-col gap-6">
+      <div class="bg-white p-6 rounded-3xl border border-pink-100 shadow-xs flex flex-col gap-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-pink-100/70 pb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="px-3 py-1 rounded-xl bg-pink-100 text-pink-700 font-black text-xs">第 1 步</span>
+            <h3 class="text-base font-black text-[#3D3A45]">影片高畫質預覽 & 手動轉為原始 GIF</h3>
+            <span id="videoMetaBadge" class="text-xs font-mono bg-purple-50 text-purple-700 px-2.5 py-0.5 rounded-full border border-purple-200 font-bold">-- × --</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <label for="videoFileInput" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs transition cursor-pointer">
+              更換影片
+            </label>
+          </div>
+        </div>
+
+        <!-- 視訊播放與預覽畫布 -->
+        <div class="flex flex-col items-center justify-center p-4 bg-pink-50/30 rounded-2xl border border-pink-100/60">
+          <div class="relative inline-block border-2 border-pink-200 rounded-2xl overflow-hidden shadow-md bg-white max-w-full">
+            <video id="step1Video" class="block max-w-full h-auto max-h-[50vh] object-contain rounded-xl" playsinline loop controls muted></video>
+          </div>
+          <p class="text-xs text-slate-500 mt-2">請先確認影片內容與解析度無誤，接著點擊下方按鈕生成完整尺寸的原始 GIF 檔案。</p>
+        </div>
+
+        <!-- 手動轉檔動作區 -->
+        <div class="p-4 rounded-2xl bg-gradient-to-r from-pink-50 via-peach-50 to-butter-50 border border-pink-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-pink-300 text-white flex items-center justify-center text-xl font-bold shadow-xs">
+              🖼️
+            </div>
+            <div>
+              <div class="font-black text-sm text-[#3D3A45] flex items-center gap-2">
+                <span>手動生成原始尺寸 GIF</span>
+                <span id="step1GifBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">尚未生成</span>
+              </div>
+              <p class="text-xs text-slate-500">採用高品質 256 色色盤量化，保證原始長寬比與完整畫格</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+            <button id="convertOriginalGifBtn" class="flex-1 sm:flex-initial px-5 py-2.5 rounded-2xl bg-gradient-to-r from-pink-400 to-rose-400 hover:from-pink-500 hover:to-rose-500 text-white font-extrabold text-xs sm:text-sm shadow-sm shadow-pink-200 transition flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <span>點此手動生成原始 GIF</span>
+            </button>
+            <button id="downloadOriginalGifBtn" disabled class="px-3.5 py-2.5 rounded-2xl bg-white hover:bg-pink-50 text-slate-300 font-bold text-xs transition border border-pink-200 flex items-center gap-1 cursor-not-allowed">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              <span>下載原始 GIF</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 導向下一步按鈕 -->
+        <div class="flex justify-end pt-2 border-t border-pink-100">
+          <button id="toStep2Btn" class="px-6 py-3 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm shadow-md shadow-teal-100 transition flex items-center gap-2" onclick="goToStep(2)">
+            <span>下一步：智慧吸管去背</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- 步驟 2 內容區塊：智慧色彩去背 (吸管與羽化) -->
+    <div id="stepSection2" class="hidden flex-col gap-6">
+      <div class="bg-white p-6 rounded-3xl border border-teal-100 shadow-xs flex flex-col gap-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-teal-100/70 pb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="px-3 py-1 rounded-xl bg-teal-100 text-teal-800 font-black text-xs">第 2 步</span>
+            <h3 class="text-base font-black text-[#3D3A45] flex items-center gap-2">
+              智慧色彩去背 (點選吸管吸取底色)
+            </h3>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <label class="relative inline-flex items-center cursor-pointer select-none">
+              <input type="checkbox" id="enableChromaToggle" class="sr-only peer" checked>
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-500"></div>
+              <span class="ml-2 text-xs font-bold text-[#4A4E69]">啟用去背</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 去背參數面板 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+          <!-- 1. 吸管與目標色選取 -->
+          <div class="flex flex-col gap-2 p-3.5 rounded-2xl bg-teal-50/50 border border-teal-100">
+            <span class="font-extrabold text-[#3D3A45] flex items-center justify-between">
+              <span>目標去背顏色：</span>
+              <button id="eyedropperBtn" type="button" class="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-xl bg-teal-500 hover:bg-teal-600 text-white font-bold shadow-xs transition">
+                <span>🎯</span>
+                畫面吸色管
+              </button>
+            </span>
+            <div class="flex items-center gap-2 mt-1">
+              <input type="color" id="keyColorPicker" value="#ffffff" class="w-9 h-9 rounded-xl cursor-pointer border border-teal-200 p-0.5 bg-white shadow-xs" />
+              <input type="text" id="keyColorHex" value="#FFFFFF" class="flex-1 font-mono uppercase bg-white border border-teal-200 rounded-xl px-2.5 py-1.5 text-teal-800 font-bold outline-none focus:ring-2 focus:ring-teal-400" />
+            </div>
+            <!-- 常用色預設快捷鈕 -->
+            <div class="flex items-center gap-1.5 mt-1">
+              <span class="text-slate-400 text-[10px]">快捷：</span>
+              <button type="button" class="color-preset-btn px-2 py-0.5 rounded-lg text-[10px] bg-white border border-teal-200 hover:bg-teal-100 font-bold" data-color="#ffffff">純白</button>
+              <button type="button" class="color-preset-btn px-2 py-0.5 rounded-lg text-[10px] bg-white border border-teal-200 hover:bg-teal-100 font-bold" data-color="#00ff00">純綠</button>
+              <button type="button" class="color-preset-btn px-2 py-0.5 rounded-lg text-[10px] bg-white border border-teal-200 hover:bg-teal-100 font-bold" data-color="#0000ff">純藍</button>
+              <button type="button" class="color-preset-btn px-2 py-0.5 rounded-lg text-[10px] bg-white border border-teal-200 hover:bg-teal-100 font-bold" data-color="#000000">純黑</button>
+            </div>
+          </div>
+
+          <!-- 2. 顏色容許度 (Tolerance) -->
+          <div class="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-teal-50/50 border border-teal-100">
+            <div class="flex items-center justify-between font-extrabold text-[#3D3A45]">
+              <span>容許門檻 (Tolerance)：</span>
+              <span id="toleranceVal" class="text-teal-700 font-mono text-sm font-black">35</span>
+            </div>
+            <input type="range" id="toleranceRange" min="1" max="150" value="35" class="mt-2 h-2 bg-teal-200 rounded-lg appearance-none cursor-pointer accent-teal-600" />
+            <span class="text-[10px] text-slate-400 mt-1">數值越大清除越乾淨，請避免吃掉相近顏色邊緣</span>
+          </div>
+
+          <!-- 3. 邊緣羽化 (Smoothness) -->
+          <div class="flex flex-col gap-1.5 p-3.5 rounded-2xl bg-teal-50/50 border border-teal-100">
+            <div class="flex items-center justify-between font-extrabold text-[#3D3A45]">
+              <span>邊緣羽化平滑 (Smoothness)：</span>
+              <span id="smoothnessVal" class="text-teal-700 font-mono text-sm font-black">10</span>
+            </div>
+            <input type="range" id="smoothnessRange" min="0" max="50" value="10" class="mt-2 h-2 bg-teal-200 rounded-lg appearance-none cursor-pointer accent-teal-600" />
+            <span class="text-[10px] text-slate-400 mt-1">控制邊緣半透明漸變，避免出現粗糙白邊</span>
+          </div>
+        </div>
+
+        <!-- 畫布即時透明預覽區 -->
+        <div class="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200">
+          <div class="w-full flex items-center justify-between mb-2 text-xs text-slate-500">
+            <span class="flex items-center gap-1 font-bold text-teal-700">
+              <span>👀</span> 棋盤格即時去背預覽 (透明背景已生效)
+            </span>
+            <button id="downloadKeyedGifBtn" class="px-3 py-1 rounded-xl bg-teal-100 hover:bg-teal-200 text-teal-800 font-bold transition flex items-center gap-1">
+              <span>💾</span> 下載已去背完整 GIF
+            </button>
+          </div>
+          <div id="step2StageWrapper" class="relative inline-block border-2 border-teal-200 rounded-2xl overflow-hidden shadow-md checkerboard max-w-full">
+            <canvas id="step2Canvas" class="block max-w-full h-auto max-h-[50vh] object-contain"></canvas>
+          </div>
+        </div>
+
+        <!-- 上一步與下一步導航 -->
+        <div class="flex items-center justify-between pt-2 border-t border-teal-100">
+          <button class="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs sm:text-sm transition flex items-center gap-1.5" onclick="goToStep(1)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            <span>上一步</span>
+          </button>
+          <button class="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-400 to-indigo-400 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs sm:text-sm shadow-md shadow-purple-100 transition flex items-center gap-2" onclick="goToStep(3)">
+            <span>下一步：設定網格與微調分割線</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- 步驟 3 內容區塊：自訂網格與分割線微調 -->
+    <div id="stepSection3" class="hidden flex-col gap-6">
+      <div class="bg-white p-6 rounded-3xl border border-purple-100 shadow-xs flex flex-col gap-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-purple-100/70 pb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="px-3 py-1 rounded-xl bg-purple-100 text-purple-800 font-black text-xs">第 3 步</span>
+            <h3 class="text-base font-black text-[#3D3A45]">自訂網格切割 (滑鼠拖曳分割線微調)</h3>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <span id="gridSummaryBadge" class="text-xs px-3 py-1 rounded-full bg-purple-50 text-purple-700 font-mono font-black border border-purple-200">
+              4 欄 × 2 列 = 共 8 個貼圖單元
+            </span>
+            <button id="resetLinesBtn" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 transition border border-purple-200 flex items-center gap-1">
+              <span>🔄</span> 還原等分
+            </button>
+          </div>
+        </div>
+
+        <!-- 網格預設與自訂按鈕 -->
+        <div class="flex items-center flex-wrap gap-2 text-xs">
+          <span class="font-extrabold text-[#3D3A45]">推薦規格：</span>
+          <div class="inline-flex rounded-xl p-1 bg-purple-50 border border-purple-200">
+            <button type="button" class="preset-btn px-3 py-1 text-xs font-bold rounded-lg bg-white text-purple-700 shadow-xs" data-grid-cols="4" data-grid-rows="2">4 欄 × 2 列 (8格)</button>
+            <button type="button" class="preset-btn px-3 py-1 text-xs font-bold rounded-lg text-slate-500 hover:text-purple-700" data-grid-cols="4" data-grid-rows="6">4 欄 × 6 列 (24格)</button>
+            <button type="button" class="preset-btn px-3 py-1 text-xs font-bold rounded-lg text-slate-500 hover:text-purple-700" data-grid-cols="3" data-grid-rows="3">3 欄 × 3 列 (9格)</button>
+            <button type="button" class="preset-btn px-3 py-1 text-xs font-bold rounded-lg text-slate-500 hover:text-purple-700" data-grid-cols="2" data-grid-rows="2">2 欄 × 2 列 (4格)</button>
+          </div>
+
+          <!-- 自訂輸入欄位 -->
+          <div class="flex items-center gap-1.5 text-xs bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-xl ml-auto">
+            <span class="text-purple-700 font-bold">自訂行列：</span>
+            <input type="number" id="customColsInput" min="1" max="10" value="4" class="w-12 px-1 py-0.5 bg-white border border-purple-200 rounded-lg text-center font-black text-purple-800 outline-none" title="欄數" />
+            <span class="text-purple-400 font-bold">×</span>
+            <input type="number" id="customRowsInput" min="1" max="10" value="2" class="w-12 px-1 py-0.5 bg-white border border-purple-200 rounded-lg text-center font-black text-purple-800 outline-none" title="列數" />
+            <button type="button" id="applyCustomGridBtn" class="px-2.5 py-1 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-bold transition shadow-xs">套用</button>
+          </div>
+        </div>
+
+        <!-- 互動分割畫布 -->
+        <div class="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200">
+          <p class="text-xs text-purple-700 font-bold mb-2 flex items-center gap-1">
+            <span>✨</span> 直接以滑鼠或手指拖曳黃色/紫色線條，即可精準微調貼圖單元邊界！
+          </p>
+          <div id="step3StageWrapper" class="relative inline-block border-2 border-purple-200 rounded-2xl overflow-hidden shadow-lg checkerboard max-w-full select-none">
+            <canvas id="step3Canvas" class="block max-w-full h-auto max-h-[50vh] object-contain"></canvas>
+
+            <!-- 覆蓋層 (分割線與號碼徽章) -->
+            <div id="step3OverlayLayer" class="absolute inset-0 pointer-events-auto">
+              <div id="cellBadges" class="absolute inset-0 pointer-events-none"></div>
+              <div id="linesContainer" class="absolute inset-0 pointer-events-auto"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 導航列 -->
+        <div class="flex items-center justify-between pt-2 border-t border-purple-100">
+          <button class="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs sm:text-sm transition flex items-center gap-1.5" onclick="goToStep(2)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            <span>上一步</span>
+          </button>
+          <button class="px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-400 to-pink-500 hover:from-rose-500 hover:to-pink-600 text-white font-black text-xs sm:text-sm shadow-md shadow-pink-100 transition flex items-center gap-2" onclick="goToStep(4)">
+            <span>下一步：LINE 動態貼圖官方規格輸出</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- 步驟 4 內容區塊：LINE 官方規範導出與一鍵打包 ZIP -->
+    <div id="stepSection4" class="hidden flex-col gap-6">
+      <div class="bg-white p-6 rounded-3xl border border-pink-100 shadow-xs flex flex-col gap-5">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-pink-100/70 pb-4">
+          <div class="flex items-center gap-2.5">
+            <span class="px-3 py-1 rounded-xl bg-pink-100 text-pink-700 font-black text-xs">第 4 步</span>
+            <h3 class="text-base font-black text-[#3D3A45]">LINE 動態貼圖導出 & 官方 ZIP 打包</h3>
+          </div>
+
+          <!-- 開始分割主按鈕 -->
+          <button id="startExportBtn" class="px-6 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-xs sm:text-sm shadow-md shadow-emerald-100 transition flex items-center gap-2">
+            <span>🚀</span>
+            <span id="startExportText">開始分割並產出貼圖</span>
+          </button>
+        </div>
+
+        <!-- 規範設定卡片 -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-pink-50/40 p-4 rounded-2xl border border-pink-100">
+          <!-- 1. 排版模式 -->
+          <div class="flex flex-col gap-1.5">
+            <span class="font-black text-[#3D3A45]">排版模式：</span>
+            <div class="inline-flex rounded-xl p-1 bg-white border border-pink-200">
+              <button id="fitContainBtn" class="flex-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-pink-100 text-pink-700 shadow-xs transition">等比留白 (推薦)</button>
+              <button id="fitCoverBtn" class="flex-1 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-500 hover:text-slate-800 transition">填滿裁切</button>
+            </div>
+          </div>
+
+          <!-- 2. 解析度規格 (雙邊偶數，至少一邊>=270) -->
+          <div class="flex flex-col gap-1.5">
+            <span class="font-black text-[#3D3A45]">單元規格 (寬×高)：</span>
+            <select id="exportResolution" class="bg-white border border-pink-200 rounded-xl px-3 py-2 text-xs font-black text-[#3D3A45] outline-none">
+              <option value="320x270" selected>320 × 270 px (LINE 官方標準上限)</option>
+              <option value="270x270">270 × 270 px (正方形標準)</option>
+              <option value="270x240">270 × 240 px (合規尺寸)</option>
+            </select>
+          </div>
+
+          <!-- 3. 播放時間設定 (嚴格保證總秒數 1, 2, 3 或 4 秒整) -->
+          <div class="flex flex-col gap-1.5">
+            <span class="font-black text-[#3D3A45]">LINE 播放時間 (單次×循環)：</span>
+            <select id="lineTimingSelect" class="bg-white border border-pink-200 rounded-xl px-3 py-2 text-xs font-black text-[#3D3A45] outline-none">
+              <option value="2x2" selected>4 秒 (單次 2 秒 × 循環 2 次) 🌟 官方推薦</option>
+              <option value="1x4">4 秒 (單次 1 秒 × 循環 4 次)</option>
+              <option value="1x2">2 秒 (單次 1 秒 × 循環 2 次)</option>
+              <option value="3x1">3 秒 (單次 3 秒 × 循環 1 次)</option>
+              <option value="1x1">1 秒 (單次 1 秒 × 循環 1 次)</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 處理進度指示 -->
+        <div id="exportProgressCard" class="hidden p-5 rounded-2xl bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <div class="w-7 h-7 rounded-full border-3 border-pink-200 border-t-pink-500 animate-spin"></div>
+              <div>
+                <h4 id="progressStatusText" class="font-black text-sm text-[#3D3A45]">正在處理貼圖單元...</h4>
+                <p class="text-xs text-slate-500">透明度去背處理與 LINE 官方 APNG 毫秒整數校正中</p>
+              </div>
+            </div>
+            <span id="progressPercentage" class="text-lg font-black font-mono text-pink-600">0%</span>
+          </div>
+          <div class="w-full bg-white rounded-full h-3 overflow-hidden p-0.5 border border-pink-200">
+            <div id="progressBarFill" class="bg-gradient-to-r from-pink-400 to-rose-400 h-full rounded-full w-0 transition-all duration-200"></div>
+          </div>
+        </div>
+
+        <!-- 成果展示區 -->
+        <div id="resultsCard" class="hidden flex-col gap-5">
+          <!-- LINE Creators Market 官方打包專區 -->
+          <div class="p-5 rounded-3xl bg-gradient-to-r from-pink-100/60 via-purple-100/40 to-teal-100/40 border border-pink-200 flex flex-col gap-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="flex items-center gap-3">
+                <div class="w-11 h-11 rounded-2xl bg-emerald-500 text-white flex items-center justify-center font-black text-xl shadow-sm">
+                  LINE
+                </div>
+                <div>
+                  <h4 class="text-sm sm:text-base font-black text-[#3D3A45] flex items-center gap-2">
+                    LINE Creators Market 官方打包審核專用包
+                    <span class="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">100% 審核合規</span>
+                  </h4>
+                  <p class="text-xs text-slate-500">
+                    包含 01.png ~ 08.png (APNG) + 封面 main.png (240×240 APNG) + 標籤 tab.png (96×74 純靜態 PNG)
+                  </p>
+                </div>
+              </div>
+
+              <!-- ZIP 一鍵打包按鈕 -->
+              <button id="downloadLineZipBtn" class="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black text-xs sm:text-sm shadow-md shadow-emerald-200 transition flex items-center justify-center gap-2">
+                <span>📦</span>
+                <span>一鍵打包 LINE 官方 ZIP (直接上傳審核)</span>
+              </button>
+            </div>
+
+            <!-- main.png 與 tab.png 來源指定 -->
+            <div class="bg-white/90 p-3.5 rounded-2xl border border-pink-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-[#3D3A45] whitespace-nowrap">👑 main.png 封面來源：</span>
+                <select id="mainSourceSelect" class="flex-1 bg-pink-50 border border-pink-200 rounded-xl px-2.5 py-1 font-bold text-pink-900 outline-none">
+                  <option value="1">第 01 格</option>
+                </select>
+                <button id="downloadMainBtn" class="px-3 py-1 rounded-xl bg-pink-100 hover:bg-pink-200 text-pink-700 font-bold transition">單獨下載</button>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <span class="font-bold text-[#3D3A45] whitespace-nowrap">🏷️ tab.png 標籤來源：</span>
+                <select id="tabSourceSelect" class="flex-1 bg-purple-50 border border-purple-200 rounded-xl px-2.5 py-1 font-bold text-purple-900 outline-none">
+                  <option value="1">第 01 格</option>
+                </select>
+                <button id="downloadTabBtn" class="px-3 py-1 rounded-xl bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold transition">單獨下載</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 分割完成預覽網格 -->
+          <div>
+            <h4 class="font-black text-sm text-[#3D3A45] mb-3 flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+              貼圖單元個別下載
+            </h4>
+            <div id="resultsGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <!-- JS 動態生成 -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 導航列 -->
+        <div class="flex items-center justify-between pt-2 border-t border-pink-100">
+          <button class="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs sm:text-sm transition flex items-center gap-1.5" onclick="goToStep(3)">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            <span>上一步 (調整網格)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <!-- 頁尾署名與 CC 授權資訊 -->
+  <footer class="mt-auto border-t border-pink-100 bg-white py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+      <div class="flex flex-col items-center sm:items-start gap-1">
+        <p class="text-sm text-[#4A4E69] font-bold flex items-center gap-1.5">
+          <span>Made by</span>
+          <a href="https://kentxchang.blogspot.tw" target="_blank" rel="noopener noreferrer" class="font-black text-pink-600 hover:text-pink-700 underline decoration-pink-300 hover:decoration-pink-600 transition flex items-center gap-1">
+            阿剛老師
+            <svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+          </a>
+        </p>
+        <p class="text-xs text-slate-400">
+          全自動影片轉原始 GIF、智慧吸色去背、自訂網格微調與一鍵導出 LINE Creators Market 合規動態貼圖
+        </p>
+      </div>
+
+      <div class="flex flex-col sm:flex-row items-center gap-2.5 text-xs text-slate-500 bg-pink-50/60 border border-pink-200 px-3.5 py-2 rounded-2xl">
+        <div class="flex items-center gap-1 font-extrabold text-pink-700">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-pink-200 text-pink-800 text-[10px] font-black">CC</span>
+          <span>BY-NC-SA 4.0</span>
+        </div>
+        <span class="hidden sm:inline text-pink-200">|</span>
+        <span>創用 CC 姓名標示-非商業性-相同方式分享 4.0 國際授權條款釋出</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- 提示訊息浮層 (替代 alert) -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- 隱藏的音效或原生共用元素 -->
+  <video id="hiddenSourceVideo" class="hidden" playsinline loop muted crossorigin="anonymous"></video>
+  <script>
+    // 全域狀態定義
+    const state = {
+      currentStep: 1,
+      videoSrc: null,
+      videoElement: document.getElementById('hiddenSourceVideo'),
+      videoNaturalWidth: 0,
+      videoNaturalHeight: 0,
+      duration: 0,
+
+      // 原始影格快取
+      cachedFrames: [],
+      targetFrameCount: 12, // 嚴格落在 5 ~ 20 幀標準範圍
+      currentPreviewFrame: 0,
+      previewTimer: null,
+
+      // 步驟 1：原始 GIF 檔 Blob
+      originalGifBlob: null,
+      isGifGenerating: false,
+
+      // 步驟 2：去背參數
+      enableChromaKey: true,
+      chromaKeyColor: { r: 255, g: 255, b: 255 }, // 預設白色
+      chromaTolerance: 35,
+      chromaSmoothness: 10,
+      isEyeDropperActive: false,
+
+      // 步驟 3：排版與網格行列
+      fitMode: 'contain',
+      exportResolution: '320x270',
+      singlePlaySeconds: 2, // 預設 2 秒
+      loopCount: 2,         // 重複 2 次 (總播放秒數 4 秒)
+      cols: 4,
+      rows: 2,
+      splitV: [0.25, 0.50, 0.75],
+      splitH: [0.50],
+      activeDrag: null,
+
+      // 步驟 4：貼圖產出
+      generatedClips: [],
+      lineMainBlob: null,
+      lineTabBlob: null
+    };
+
+    // DOM 元素引用
+    const dropzone = document.getElementById('uploadDropzone');
+    const fileInput = document.getElementById('videoFileInput');
+    const step1Video = document.getElementById('step1Video');
+    const videoMetaBadge = document.getElementById('videoMetaBadge');
+    const convertOriginalGifBtn = document.getElementById('convertOriginalGifBtn');
+    const downloadOriginalGifBtn = document.getElementById('downloadOriginalGifBtn');
+    const step1GifBadge = document.getElementById('step1GifBadge');
+    const demoBtn = document.getElementById('demoBtn');
+
+    // 步驟 2 元素
+    const enableChromaToggle = document.getElementById('enableChromaToggle');
+    const eyedropperBtn = document.getElementById('eyedropperBtn');
+    const keyColorPicker = document.getElementById('keyColorPicker');
+    const keyColorHex = document.getElementById('keyColorHex');
+    const toleranceRange = document.getElementById('toleranceRange');
+    const toleranceVal = document.getElementById('toleranceVal');
+    const smoothnessRange = document.getElementById('smoothnessRange');
+    const smoothnessVal = document.getElementById('smoothnessVal');
+    const downloadKeyedGifBtn = document.getElementById('downloadKeyedGifBtn');
+    const step2Canvas = document.getElementById('step2Canvas');
+    const step2StageWrapper = document.getElementById('step2StageWrapper');
+
+    // 步驟 3 元素
+    const step3Canvas = document.getElementById('step3Canvas');
+    const step3StageWrapper = document.getElementById('step3StageWrapper');
+    const step3OverlayLayer = document.getElementById('step3OverlayLayer');
+    const cellBadges = document.getElementById('cellBadges');
+    const linesContainer = document.getElementById('linesContainer');
+    const gridSummaryBadge = document.getElementById('gridSummaryBadge');
+    const resetLinesBtn = document.getElementById('resetLinesBtn');
+    const customColsInput = document.getElementById('customColsInput');
+    const customRowsInput = document.getElementById('customRowsInput');
+    const applyCustomGridBtn = document.getElementById('applyCustomGridBtn');
+
+    // 步驟 4 元素
+    const fitContainBtn = document.getElementById('fitContainBtn');
+    const fitCoverBtn = document.getElementById('fitCoverBtn');
+    const exportResolution = document.getElementById('exportResolution');
+    const lineTimingSelect = document.getElementById('lineTimingSelect');
+    const startExportBtn = document.getElementById('startExportBtn');
+    const startExportText = document.getElementById('startExportText');
+    const exportProgressCard = document.getElementById('exportProgressCard');
+    const progressStatusText = document.getElementById('progressStatusText');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const progressBarFill = document.getElementById('progressBarFill');
+    const resultsCard = document.getElementById('resultsCard');
+    const resultsGrid = document.getElementById('resultsGrid');
+    const downloadLineZipBtn = document.getElementById('downloadLineZipBtn');
+    const downloadMainBtn = document.getElementById('downloadMainBtn');
+    const downloadTabBtn = document.getElementById('downloadTabBtn');
+    const mainSourceSelect = document.getElementById('mainSourceSelect');
+    const tabSourceSelect = document.getElementById('tabSourceSelect');
+
+    const toastContainer = document.getElementById('toastContainer');
+
+    function showToast(message, type = 'info') {
+      if (!toastContainer) return;
+      const toast = document.createElement('div');
+      const bgMap = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-rose-500 text-white',
+        info: 'bg-slate-800 text-white'
+      };
+      toast.className = `${bgMap[type] || bgMap.info} text-xs sm:text-sm px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-2 transform transition-all duration-300 translate-y-4 opacity-0 pointer-events-auto`;
+      toast.innerHTML = `<span>${message}</span>`;
+      toastContainer.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+    // 精靈步驟切換函式
+    function goToStep(stepNumber) {
+      if (!state.videoSrc) {
+        showToast('請先上傳影片或點擊載入示範動畫', 'error');
+        return;
+      }
+
+      state.currentStep = stepNumber;
+
+      // 更新按鈕樣式
+      for (let s = 1; s <= 4; s++) {
+        const tab = document.getElementById(`stepTab${s}`);
+        const sec = document.getElementById(`stepSection${s}`);
+        if (!tab || !sec) continue;
+
+        if (s === stepNumber) {
+          tab.className = 'step-nav-btn flex items-center gap-2.5 p-3 rounded-2xl bg-pink-100 text-pink-700 font-black text-xs transition border border-pink-300 shadow-sm';
+          tab.querySelector('span').className = 'w-6 h-6 rounded-full bg-pink-500 text-white flex items-center justify-center text-xs font-black shadow-xs';
+          sec.classList.remove('hidden');
+          sec.classList.add('flex');
+        } else if (s < stepNumber) {
+          tab.className = 'step-nav-btn flex items-center gap-2.5 p-3 rounded-2xl bg-emerald-50 text-emerald-700 font-bold text-xs transition border border-emerald-200';
+          tab.querySelector('span').className = 'w-6 h-6 rounded-full bg-emerald-400 text-white flex items-center justify-center text-xs font-black';
+          sec.classList.add('hidden');
+          sec.classList.remove('flex');
+        } else {
+          tab.className = 'step-nav-btn flex items-center gap-2.5 p-3 rounded-2xl bg-slate-50 text-slate-400 font-bold text-xs transition border border-transparent';
+          tab.querySelector('span').className = 'w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-black';
+          sec.classList.add('hidden');
+          sec.classList.remove('flex');
+        }
+      }
+
+      // 當進入步驟 2 或 3 時啟動畫布渲染
+      if (stepNumber === 2 || stepNumber === 3) {
+        startCanvasAnimationLoop();
+        updateLinePositions();
+      } else {
+        stopCanvasAnimationLoop();
+      }
+    }
+
+    function hexToRgb(hex) {
+      hex = hex.replace('#', '');
+      if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
+      const num = parseInt(hex, 16);
+      return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(x => {
+        const h = x.toString(16);
+        return h.length === 1 ? '0' + h : h;
+      }).join('').toUpperCase();
+    }
+
+    // 容差色彩去背演算法
+    function processChromaKey(imageData, keyColor, tolerance, smoothness) {
+      const data = imageData.data;
+      const { r: kr, g: kg, b: kb } = keyColor;
+      const tolDist = tolerance * 1.732;
+      const smoothDist = smoothness * 1.732;
+
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        const dist = Math.sqrt((r - kr) ** 2 + (g - kg) ** 2 + (b - kb) ** 2);
+
+        if (dist <= tolDist) {
+          data[i + 3] = 0;
+        } else if (dist < tolDist + smoothDist && smoothDist > 0) {
+          const alphaRatio = (dist - tolDist) / smoothDist;
+          data[i + 3] = Math.floor(data[i + 3] * alphaRatio);
+        }
+      }
+      return imageData;
+    }
+
+    function seekVideo(video, time) {
+      return new Promise((resolve) => {
+        const onSeeked = () => {
+          video.removeEventListener('seeked', onSeeked);
+          resolve();
+        };
+        video.addEventListener('seeked', onSeeked);
+        video.currentTime = Math.min(time, video.duration);
+      });
+    }
+
+    // 擷取原始完整畫格 (5 ~ 20 畫格標準)
+    async function extractOriginalFrames(vid) {
+      const origW = vid.videoWidth;
+      const origH = vid.videoHeight;
+      const duration = Math.min(4, Math.max(1, vid.duration || 2));
+      const targetFrames = Math.max(5, Math.min(20, state.targetFrameCount || 12));
+
+      state.cachedFrames = [];
+      const originalTime = vid.currentTime;
+
+      for (let i = 0; i < targetFrames; i++) {
+        const time = (i / targetFrames) * duration;
+        await seekVideo(vid, time);
+
+        const fCanvas = document.createElement('canvas');
+        fCanvas.width = origW;
+        fCanvas.height = origH;
+        const fCtx = fCanvas.getContext('2d', { willReadFrequently: true });
+        fCtx.drawImage(vid, 0, 0, origW, origH);
+
+        state.cachedFrames.push({
+          time,
+          canvas: fCanvas,
+          width: origW,
+          height: origH
+        });
+      }
+
+      vid.currentTime = originalTime;
+    }
+    // 即時渲染去背與網格畫布
+    function renderStepCanvas(canvas, withChroma = true) {
+      if (!canvas || state.cachedFrames.length === 0) return;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const curFrame = state.cachedFrames[state.currentPreviewFrame] || state.cachedFrames[0];
+      const w = curFrame.width;
+      const h = curFrame.height;
+
+      canvas.width = w;
+      canvas.height = h;
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(curFrame.canvas, 0, 0);
+
+      if (withChroma && state.enableChromaKey) {
+        const imgData = ctx.getImageData(0, 0, w, h);
+        processChromaKey(imgData, state.chromaKeyColor, state.chromaTolerance, state.chromaSmoothness);
+        ctx.putImageData(imgData, 0, 0);
+      }
+    }
+
+    function startCanvasAnimationLoop() {
+      if (state.previewTimer) clearInterval(state.previewTimer);
+      state.previewTimer = setInterval(() => {
+        if (state.cachedFrames.length === 0) return;
+        state.currentPreviewFrame = (state.currentPreviewFrame + 1) % state.cachedFrames.length;
+
+        if (state.currentStep === 2) {
+          renderStepCanvas(step2Canvas, true);
+        } else if (state.currentStep === 3) {
+          renderStepCanvas(step3Canvas, true);
+        }
+      }, 1000 / (state.cachedFrames.length || 12));
+    }
+
+    function stopCanvasAnimationLoop() {
+      if (state.previewTimer) {
+        clearInterval(state.previewTimer);
+        state.previewTimer = null;
+      }
+    }
+
+    // 載入影片 (只預覽，絕不自動生成 GIF)
+    function loadVideoUrl(url, filename = 'video.mp4') {
+      const vid = state.videoElement;
+      state.videoSrc = url;
+      vid.src = url;
+
+      if (step1Video) {
+        step1Video.src = url;
+        step1Video.play().catch(() => {});
+      }
+
+      vid.onloadedmetadata = async () => {
+        state.videoNaturalWidth = vid.videoWidth;
+        state.videoNaturalHeight = vid.videoHeight;
+        state.duration = vid.duration;
+
+        if (videoMetaBadge) {
+          videoMetaBadge.textContent = `${vid.videoWidth} × ${vid.videoHeight} (${vid.duration.toFixed(1)}s)`;
+        }
+
+        // 隱藏拖曳區，顯示步驟 1
+        if (dropzone) dropzone.classList.add('hidden');
+        goToStep(1);
+
+        // 重置 GIF 狀態提示
+        state.originalGifBlob = null;
+        if (downloadOriginalGifBtn) {
+          downloadOriginalGifBtn.disabled = true;
+          downloadOriginalGifBtn.className = 'px-3.5 py-2.5 rounded-2xl bg-white hover:bg-pink-50 text-slate-300 font-bold text-xs transition border border-pink-200 flex items-center gap-1 cursor-not-allowed';
+        }
+        if (step1GifBadge) {
+          step1GifBadge.textContent = '尚未生成 (等待手動點擊)';
+          step1GifBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600';
+        }
+
+        showToast('正在預取高畫質影格以備預覽...', 'info');
+        await extractOriginalFrames(vid);
+        showToast(`影片載入成功！請在步驟 1 預覽並手動生成 GIF`, 'success');
+      };
+    }
+    // 高畫質原始 GIF 編碼 (手動觸發)
+    async function encodeGifFile(canvases, applyChroma = false) {
+      if (typeof UPNG === 'undefined') {
+        throw new Error('UPNG.js 庫尚未就緒');
+      }
+
+      const w = canvases[0].width;
+      const h = canvases[0].height;
+      const targetFrames = canvases.length;
+      const duration = Math.min(4, Math.max(1, state.duration || 2));
+      const frameDelayMs = Math.round((duration * 1000) / targetFrames);
+
+      const frameBuffers = [];
+      const delays = new Array(targetFrames).fill(frameDelayMs);
+
+      for (let i = 0; i < targetFrames; i++) {
+        const cvs = canvases[i];
+        const ctx = cvs.getContext('2d', { willReadFrequently: true });
+        const imgData = ctx.getImageData(0, 0, w, h);
+        if (applyChroma) {
+          processChromaKey(imgData, state.chromaKeyColor, state.chromaTolerance, state.chromaSmoothness);
+        }
+        frameBuffers.push(imgData.data.buffer);
+      }
+
+      const encodedBuffer = UPNG.encode(frameBuffers, w, h, 256, delays);
+      return new Blob([encodedBuffer], { type: 'image/gif' });
+    }
+
+    // 手動生成原始 GIF 按鈕事件
+    if (convertOriginalGifBtn) {
+      convertOriginalGifBtn.addEventListener('click', async () => {
+        if (state.cachedFrames.length === 0) {
+          showToast('影格提取中，請稍候再試', 'error');
+          return;
+        }
+
+        convertOriginalGifBtn.disabled = true;
+        convertOriginalGifBtn.classList.add('opacity-50');
+        showToast('正在手動生成原始尺寸 GIF，請稍候...', 'info');
+
+        try {
+          const rawCanvases = state.cachedFrames.map(f => f.canvas);
+          state.originalGifBlob = await encodeGifFile(rawCanvases, false);
+
+          if (downloadOriginalGifBtn) {
+            downloadOriginalGifBtn.disabled = false;
+            downloadOriginalGifBtn.className = 'px-3.5 py-2.5 rounded-2xl bg-white hover:bg-pink-100 text-pink-700 font-extrabold text-xs transition border border-pink-300 flex items-center gap-1 shadow-xs';
+          }
+
+          if (step1GifBadge) {
+            step1GifBadge.textContent = `已生成 (${(state.originalGifBlob.size / 1024).toFixed(1)} KB)`;
+            step1GifBadge.className = 'text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+          }
+
+          showToast('🎉 原始尺寸 GIF 生成完畢！可直接下載或前往步驟 2 去背！', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('GIF 生成失敗: ' + err.message, 'error');
+        } finally {
+          convertOriginalGifBtn.disabled = false;
+          convertOriginalGifBtn.classList.remove('opacity-50');
+        }
+      });
+    }
+
+    if (downloadOriginalGifBtn) {
+      downloadOriginalGifBtn.addEventListener('click', () => {
+        if (state.originalGifBlob) {
+          saveAs(state.originalGifBlob, `original_${state.videoNaturalWidth}x${state.videoNaturalHeight}.gif`);
+          showToast('已下載原始尺寸 GIF！', 'success');
+        }
+      });
+    }
+
+    if (downloadKeyedGifBtn) {
+      downloadKeyedGifBtn.addEventListener('click', async () => {
+        showToast('正在導出已去背之完整 GIF...', 'info');
+        const rawCanvases = state.cachedFrames.map(f => f.canvas);
+        const keyedBlob = await encodeGifFile(rawCanvases, true);
+        saveAs(keyedBlob, `keyed_transparent_${state.videoNaturalWidth}x${state.videoNaturalHeight}.gif`);
+        showToast('已下載去背後的透明底 GIF！', 'success');
+      });
+    }
+    // 吸管工具
+    if (eyedropperBtn) {
+      eyedropperBtn.addEventListener('click', () => {
+        state.isEyeDropperActive = !state.isEyeDropperActive;
+        if (state.isEyeDropperActive) {
+          eyedropperBtn.className = 'inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold shadow-xs transition';
+          eyedropperBtn.innerHTML = `<span>點選畫面取色...</span>`;
+          step2StageWrapper.classList.add('eyedropper-active');
+          showToast('請點擊畫布上欲去除的底色位置', 'info');
+        } else {
+          exitEyedropper();
+        }
+      });
+    }
+
+    function exitEyedropper() {
+      state.isEyeDropperActive = false;
+      if (eyedropperBtn) {
+        eyedropperBtn.className = 'inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-xl bg-teal-500 hover:bg-teal-600 text-white font-bold shadow-xs transition';
+        eyedropperBtn.innerHTML = `<span>🎯</span> 畫面吸色管`;
+      }
+      if (step2StageWrapper) step2StageWrapper.classList.remove('eyedropper-active');
+    }
+
+    if (step2Canvas) {
+      step2Canvas.addEventListener('click', (e) => {
+        if (!state.isEyeDropperActive) return;
+        const rect = step2Canvas.getBoundingClientRect();
+        const clientX = e.clientX;
+        const clientY = e.clientY;
+
+        const x = Math.floor(((clientX - rect.left) / rect.width) * step2Canvas.width);
+        const y = Math.floor(((clientY - rect.top) / rect.height) * step2Canvas.height);
+
+        if (state.cachedFrames.length > 0) {
+          const curFrame = state.cachedFrames[state.currentPreviewFrame] || state.cachedFrames[0];
+          const tempCtx = curFrame.canvas.getContext('2d');
+          const p = tempCtx.getImageData(x, y, 1, 1).data;
+          const hex = rgbToHex(p[0], p[1], p[2]);
+          updateKeyColor(hex);
+          showToast(`吸取成功：${hex}`, 'success');
+        }
+        exitEyedropper();
+      });
+    }
+
+    function updateKeyColor(hex) {
+      state.chromaKeyColor = hexToRgb(hex);
+      if (keyColorPicker) keyColorPicker.value = hex;
+      if (keyColorHex) keyColorHex.value = hex.toUpperCase();
+      renderStepCanvas(step2Canvas, true);
+    }
+
+    if (keyColorPicker) {
+      keyColorPicker.addEventListener('input', (e) => updateKeyColor(e.target.value));
+    }
+
+    if (keyColorHex) {
+      keyColorHex.addEventListener('change', (e) => {
+        let val = e.target.value.trim();
+        if (!val.startsWith('#')) val = '#' + val;
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+          updateKeyColor(val);
+        } else {
+          showToast('請輸入合法 Hex 色碼 (例如 #FFFFFF)', 'error');
+        }
+      });
+    }
+
+    document.querySelectorAll('.color-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => updateKeyColor(btn.dataset.color));
+    });
+
+    if (enableChromaToggle) {
+      enableChromaToggle.addEventListener('change', (e) => {
+        state.enableChromaKey = e.target.checked;
+        renderStepCanvas(step2Canvas, true);
+        showToast(state.enableChromaKey ? '已啟用去背模式' : '已停用去背 (保留原始底色)', 'info');
+      });
+    }
+
+    if (toleranceRange) {
+      toleranceRange.addEventListener('input', (e) => {
+        state.chromaTolerance = parseInt(e.target.value, 10);
+        if (toleranceVal) toleranceVal.textContent = state.chromaTolerance;
+        renderStepCanvas(step2Canvas, true);
+      });
+    }
+
+    if (smoothnessRange) {
+      smoothnessRange.addEventListener('input', (e) => {
+        state.chromaSmoothness = parseInt(e.target.value, 10);
+        if (smoothnessVal) smoothnessVal.textContent = state.chromaSmoothness;
+        renderStepCanvas(step2Canvas, true);
+      });
+    }
+    // 網格行列維度與分割線建置
+    function setGridDimensions(cols, rows) {
+      state.cols = Math.max(1, Math.min(10, cols));
+      state.rows = Math.max(1, Math.min(10, rows));
+
+      state.splitV = [];
+      for (let i = 1; i < state.cols; i++) state.splitV.push(i / state.cols);
+
+      state.splitH = [];
+      for (let j = 1; j < state.rows; j++) state.splitH.push(j / state.rows);
+
+      if (customColsInput) customColsInput.value = state.cols;
+      if (customRowsInput) customRowsInput.value = state.rows;
+
+      const totalCells = state.cols * state.rows;
+      if (gridSummaryBadge) {
+        gridSummaryBadge.textContent = `${state.cols} 欄 × ${state.rows} 列 = 共 ${totalCells} 個貼圖單元`;
+      }
+      if (startExportText) {
+        startExportText.textContent = `開始分割並產出 ${totalCells} 個貼圖`;
+      }
+
+      document.querySelectorAll('.preset-btn').forEach(btn => {
+        const c = parseInt(btn.dataset.gridCols, 10);
+        const r = parseInt(btn.dataset.gridRows, 10);
+        if (c === state.cols && r === state.rows) {
+          btn.className = 'preset-btn px-3 py-1 text-xs font-black rounded-lg bg-purple-500 text-white shadow-xs';
+        } else {
+          btn.className = 'preset-btn px-3 py-1 text-xs font-bold rounded-lg text-slate-500 hover:text-purple-700';
+        }
+      });
+
+      buildLineElements();
+      updateLinePositions();
+    }
+
+    function buildLineElements() {
+      if (!linesContainer) return;
+      linesContainer.innerHTML = '';
+
+      state.splitH.forEach((_, idx) => {
+        const line = document.createElement('div');
+        line.className = 'split-line-h absolute left-0 right-0 h-4 -mt-2 z-20 flex items-center justify-center group cursor-row-resize';
+        line.dataset.index = idx;
+        line.innerHTML = `
+          <div class="w-full h-1 bg-amber-400 group-hover:bg-amber-500 shadow-md transition-colors flex items-center justify-center">
+            <span class="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-black shadow opacity-90 group-hover:opacity-100 flex items-center gap-1 select-none">
+              水平線 #${idx + 1}
+            </span>
+          </div>
+        `;
+        line.addEventListener('mousedown', (e) => startDrag(e, 'h', idx));
+        line.addEventListener('touchstart', (e) => startDrag(e, 'h', idx), { passive: false });
+        linesContainer.appendChild(line);
+      });
+
+      state.splitV.forEach((_, idx) => {
+        const line = document.createElement('div');
+        line.className = 'split-line-v absolute top-0 bottom-0 w-4 -ml-2 z-20 flex items-center justify-center group cursor-col-resize';
+        line.dataset.index = idx;
+        line.innerHTML = `
+          <div class="w-1 h-full bg-purple-500 group-hover:bg-purple-600 shadow-md transition-colors flex items-center justify-center">
+            <span class="py-1 px-1 rounded-md bg-purple-600 text-white text-[9px] font-black shadow transform -rotate-90 opacity-90 group-hover:opacity-100 whitespace-nowrap select-none">
+              ${idx + 1}/${state.cols}
+            </span>
+          </div>
+        `;
+        line.addEventListener('mousedown', (e) => startDrag(e, 'v', idx));
+        line.addEventListener('touchstart', (e) => startDrag(e, 'v', idx), { passive: false });
+        linesContainer.appendChild(line);
+      });
+    }
+
+    function updateLinePositions() {
+      if (!linesContainer) return;
+      const vLineEls = linesContainer.querySelectorAll('.split-line-v');
+      vLineEls.forEach((el, idx) => {
+        if (state.splitV[idx] !== undefined) el.style.left = `${state.splitV[idx] * 100}%`;
+      });
+
+      const hLineEls = linesContainer.querySelectorAll('.split-line-h');
+      hLineEls.forEach((el, idx) => {
+        if (state.splitH[idx] !== undefined) el.style.top = `${state.splitH[idx] * 100}%`;
+      });
+
+      renderCellBadges();
+    }
+
+    function renderCellBadges() {
+      if (!cellBadges) return;
+      cellBadges.innerHTML = '';
+      const xs = [0, ...state.splitV, 1];
+      const ys = [0, ...state.splitH, 1];
+
+      for (let r = 0; r < state.rows; r++) {
+        for (let c = 0; c < state.cols; c++) {
+          const idx = r * state.cols + c + 1;
+          const xStart = xs[c];
+          const yStart = ys[r];
+
+          const badge = document.createElement('div');
+          badge.className = 'absolute px-1.5 py-0.5 rounded-lg bg-pink-900/80 text-white font-mono text-[10px] font-bold backdrop-blur-xs flex items-center gap-1 border border-white/30 select-none shadow pointer-events-none';
+          badge.style.left = `${xStart * 100 + 1}%`;
+          badge.style.top = `${yStart * 100 + 1}%`;
+          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-pink-400"></span>#${String(idx).padStart(2, '0')}`;
+          cellBadges.appendChild(badge);
+        }
+      }
+    }
+
+    function startDrag(e, type, index) {
+      e.preventDefault();
+      state.activeDrag = { type, index };
+      document.body.style.cursor = type === 'v' ? 'col-resize' : 'row-resize';
+      window.addEventListener('mousemove', onDragging);
+      window.addEventListener('touchmove', onDragging, { passive: false });
+      window.addEventListener('mouseup', stopDrag);
+      window.addEventListener('touchend', stopDrag);
+    }
+
+    function onDragging(e) {
+      if (!state.activeDrag) return;
+      e.preventDefault();
+
+      const rect = step3StageWrapper.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      if (state.activeDrag.type === 'v') {
+        const idx = state.activeDrag.index;
+        let pct = (clientX - rect.left) / rect.width;
+        const minPct = idx === 0 ? 0.02 : state.splitV[idx - 1] + 0.02;
+        const maxPct = idx === state.splitV.length - 1 ? 0.98 : state.splitV[idx + 1] - 0.02;
+        pct = Math.max(minPct, Math.min(maxPct, pct));
+        state.splitV[idx] = pct;
+      } else if (state.activeDrag.type === 'h') {
+        const idx = state.activeDrag.index;
+        let pct = (clientY - rect.top) / rect.height;
+        const minPct = idx === 0 ? 0.02 : state.splitH[idx - 1] + 0.02;
+        const maxPct = idx === state.splitH.length - 1 ? 0.98 : state.splitH[idx + 1] - 0.02;
+        pct = Math.max(minPct, Math.min(maxPct, pct));
+        state.splitH[idx] = pct;
+      }
+
+      updateLinePositions();
+    }
+
+    function stopDrag() {
+      state.activeDrag = null;
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', onDragging);
+      window.removeEventListener('touchmove', onDragging);
+      window.removeEventListener('mouseup', stopDrag);
+      window.removeEventListener('touchend', stopDrag);
+    }
+
+    if (resetLinesBtn) {
+      resetLinesBtn.addEventListener('click', () => {
+        setGridDimensions(state.cols, state.rows);
+        showToast('已還原為等分切割線', 'info');
+      });
+    }
+
+    document.querySelectorAll('.preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const c = parseInt(btn.dataset.gridCols, 10);
+        const r = parseInt(btn.dataset.gridRows, 10);
+        setGridDimensions(c, r);
+        showToast(`已切換為 ${c}×${r} 網格`, 'info');
+      });
+    });
+
+    if (applyCustomGridBtn) {
+      applyCustomGridBtn.addEventListener('click', () => {
+        const c = parseInt(customColsInput.value, 10);
+        const r = parseInt(customRowsInput.value, 10);
+        if (isNaN(c) || isNaN(r) || c < 1 || r < 1) {
+          showToast('請輸入 1 ~ 10 之間的行列數', 'error');
+          return;
+        }
+        setGridDimensions(c, r);
+        showToast(`已套用自訂 ${c}×${r} 網格`, 'success');
+      });
+    }
+    // CRC-32 表
+    const crcTable = [];
+    (function initCrcTable() {
+      for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) {
+          c = ((c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1));
+        }
+        crcTable[n] = c;
+      }
+    })();
+
+    function calculateCrc32(buf) {
+      let crc = 0xFFFFFFFF;
+      for (let i = 0; i < buf.length; i++) {
+        crc = crcTable[(crc ^ buf[i]) & 0xFF] ^ (crc >>> 8);
+      }
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    }
+
+    // 嚴格修補 UPNG acTL 標籤中的 num_plays (動態貼圖播放次數，必須為 1~4，不得為 0)
+    function patchApngNumPlays(arrayBuffer, loopCount = 2) {
+      const view = new DataView(arrayBuffer);
+      const uint8 = new Uint8Array(arrayBuffer);
+
+      for (let i = 8; i < uint8.length - 8; i++) {
+        // 'acTL' ASCII: 0x61, 0x63, 0x54, 0x4C
+        if (uint8[i] === 0x61 && uint8[i+1] === 0x63 && uint8[i+2] === 0x54 && uint8[i+3] === 0x4C) {
+          view.setUint32(i + 8, Math.max(1, Math.min(4, loopCount)), false);
+          const crc = calculateCrc32(uint8.subarray(i, i + 12));
+          view.setUint32(i + 12, crc, false);
+          break;
+        }
+      }
+      return arrayBuffer;
+    }
+
+    function createPureStaticPngBlob(canvas, targetWidth, targetHeight) {
+      return new Promise((resolve) => {
+        const outCanvas = document.createElement('canvas');
+        outCanvas.width = targetWidth;
+        outCanvas.height = targetHeight;
+        const ctx = outCanvas.getContext('2d');
+        ctx.clearRect(0, 0, targetWidth, targetHeight);
+
+        const ratio = Math.min(targetWidth / canvas.width, targetHeight / canvas.height);
+        const dw = Math.floor(canvas.width * ratio);
+        const dh = Math.floor(canvas.height * ratio);
+        const dx = Math.floor((targetWidth - dw) / 2);
+        const dy = Math.floor((targetHeight - dh) / 2);
+        ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height, dx, dy, dw, dh);
+
+        outCanvas.toBlob((blob) => resolve(blob), 'image/png');
+      });
+    }
+
+    // 統一高精準 APNG 產生核心：尾幀補齊毫秒差額，保證總秒數恰為 1, 2, 3 或 4 秒整
+    function createExactLineApng(frameBuffers, targetW, targetH, singlePlaySeconds, loopCount) {
+      const targetFrames = frameBuffers.length;
+      const totalMs = Math.round(singlePlaySeconds * 1000);
+      const baseDelayMs = Math.floor(totalMs / targetFrames);
+      const remainderMs = totalMs - (baseDelayMs * targetFrames);
+
+      const delays = [];
+      for (let i = 0; i < targetFrames; i++) {
+        delays.push(i === targetFrames - 1 ? (baseDelayMs + remainderMs) : baseDelayMs);
+      }
+
+      const apngBuffer = UPNG.encode(frameBuffers, targetW, targetH, 256, delays);
+      const patchedBuffer = patchApngNumPlays(apngBuffer, loopCount);
+
+      return new Blob([patchedBuffer], { type: 'image/png' });
+    }
+
+    function getCellBoxes(vidWidth, vidHeight) {
+      const xs = [0, ...state.splitV.map(v => Math.round(v * vidWidth)), vidWidth];
+      const ys = [0, ...state.splitH.map(h => Math.round(h * vidHeight)), vidHeight];
+      const boxes = [];
+
+      for (let r = 0; r < state.rows; r++) {
+        for (let c = 0; c < state.cols; c++) {
+          const sx = xs[c];
+          const sy = ys[r];
+          const sw = Math.max(1, xs[c + 1] - sx);
+          const sh = Math.max(1, ys[r + 1] - sy);
+          boxes.push({ index: r * state.cols + c + 1, row: r, col: c, sx, sy, sw, sh });
+        }
+      }
+      return boxes;
+    }
+
+    function drawCropToCanvas(ctx, sourceCanvas, box, targetWidth, targetHeight, fitMode) {
+      ctx.clearRect(0, 0, targetWidth, targetHeight);
+      const { sx, sy, sw, sh } = box;
+      const srcRatio = sw / sh;
+      const targetRatio = targetWidth / targetHeight;
+
+      let dw, dh, dx, dy;
+
+      if (fitMode === 'contain') {
+        if (srcRatio >= targetRatio) {
+          dw = targetWidth;
+          dh = targetWidth / srcRatio;
+          dx = 0;
+          dy = (targetHeight - dh) / 2;
+        } else {
+          dh = targetHeight;
+          dw = targetHeight * srcRatio;
+          dy = 0;
+          dx = (targetWidth - dw) / 2;
+        }
+      } else {
+        if (srcRatio >= targetRatio) {
+          dh = targetHeight;
+          dw = targetHeight * srcRatio;
+          dy = 0;
+          dx = (targetWidth - dw) / 2;
+        } else {
+          dw = targetWidth;
+          dh = targetWidth / srcRatio;
+          dx = 0;
+          dy = (targetHeight - dh) / 2;
+        }
+      }
+
+      ctx.drawImage(sourceCanvas, sx, sy, sw, sh, Math.floor(dx), Math.floor(dy), Math.floor(dw), Math.floor(dh));
+    }
+
+    function calculateLineTargetDimensions(specKey = '320x270') {
+      let [w, h] = specKey.split('x').map(Number);
+      if (isNaN(w) || isNaN(h)) { w = 320; h = 270; }
+      if (w % 2 !== 0) w--;
+      if (h % 2 !== 0) h--;
+      if (w < 270 && h < 270) h = 270;
+      return { targetW: w, targetH: h };
+    }
+
+    async function renderStickerApng(box, specKey, fitMode) {
+      const { targetW, targetH } = calculateLineTargetDimensions(specKey);
+      const canvas = document.createElement('canvas');
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      const singlePlaySeconds = Math.max(1, Math.min(4, state.singlePlaySeconds || 2));
+      const targetFrames = Math.max(5, Math.min(20, state.targetFrameCount || 12));
+      const frameBuffers = [];
+
+      for (let i = 0; i < targetFrames; i++) {
+        const frameObj = state.cachedFrames[i] || state.cachedFrames[0];
+        drawCropToCanvas(ctx, frameObj.canvas, box, targetW, targetH, fitMode);
+
+        const imgData = ctx.getImageData(0, 0, targetW, targetH);
+        if (state.enableChromaKey) {
+          processChromaKey(imgData, state.chromaKeyColor, state.chromaTolerance, state.chromaSmoothness);
+        }
+        frameBuffers.push(imgData.data.buffer);
+      }
+
+      return createExactLineApng(frameBuffers, targetW, targetH, singlePlaySeconds, state.loopCount);
+    }
+
+    // 重新生成指定單元的 main.png (嚴格 240x240 APNG，整數秒)
+    async function regenerateSelectedMainCover(clipIndex = 1) {
+      const boxes = getCellBoxes(state.videoNaturalWidth, state.videoNaturalHeight);
+      const box = boxes[clipIndex - 1] || boxes[0];
+      if (!box || state.cachedFrames.length === 0) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 240;
+      canvas.height = 240;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      const singlePlaySeconds = Math.max(1, Math.min(4, state.singlePlaySeconds || 2));
+      const targetFrames = Math.max(5, Math.min(20, state.targetFrameCount || 12));
+      const frameBuffers = [];
+
+      for (let i = 0; i < targetFrames; i++) {
+        const frameObj = state.cachedFrames[i] || state.cachedFrames[0];
+        drawCropToCanvas(ctx, frameObj.canvas, box, 240, 240, state.fitMode);
+
+        const imgData = ctx.getImageData(0, 0, 240, 240);
+        if (state.enableChromaKey) {
+          processChromaKey(imgData, state.chromaKeyColor, state.chromaTolerance, state.chromaSmoothness);
+        }
+        frameBuffers.push(imgData.data.buffer);
+      }
+
+      state.lineMainBlob = createExactLineApng(frameBuffers, 240, 240, singlePlaySeconds, state.loopCount);
+    }
+
+    // 重新生成指定單元的 tab.png (嚴格 96x74 純靜態 PNG)
+    async function regenerateSelectedTabIcon(clipIndex = 1) {
+      const boxes = getCellBoxes(state.videoNaturalWidth, state.videoNaturalHeight);
+      const box = boxes[clipIndex - 1] || boxes[0];
+      if (!box || state.cachedFrames.length === 0) return;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 96;
+      canvas.height = 74;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      const frameObj = state.cachedFrames[0];
+      drawCropToCanvas(ctx, frameObj.canvas, box, 96, 74, state.fitMode);
+
+      const imgData = ctx.getImageData(0, 0, 96, 74);
+      if (state.enableChromaKey) {
+        processChromaKey(imgData, state.chromaKeyColor, state.chromaTolerance, state.chromaSmoothness);
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      state.lineTabBlob = await createPureStaticPngBlob(canvas, 96, 74);
+    }
+    if (fitContainBtn && fitCoverBtn) {
+      fitContainBtn.addEventListener('click', () => {
+        state.fitMode = 'contain';
+        fitContainBtn.className = 'flex-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-pink-100 text-pink-700 shadow-xs transition';
+        fitCoverBtn.className = 'flex-1 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-500 hover:text-slate-800 transition';
+      });
+
+      fitCoverBtn.addEventListener('click', () => {
+        state.fitMode = 'cover';
+        fitCoverBtn.className = 'flex-1 px-3 py-1.5 text-xs font-bold rounded-lg bg-pink-100 text-pink-700 shadow-xs transition';
+        fitContainBtn.className = 'flex-1 px-3 py-1.5 text-xs font-bold rounded-lg text-slate-500 hover:text-slate-800 transition';
+      });
+    }
+
+    if (lineTimingSelect) {
+      lineTimingSelect.addEventListener('change', (e) => {
+        const [single, loop] = e.target.value.split('x').map(Number);
+        state.singlePlaySeconds = single;
+        state.loopCount = loop;
+        showToast(`已設定 LINE 播放時間：單次 ${single} 秒 × 循環 ${loop} 次 ＝ 總計 ${single * loop} 秒整`, 'info');
+      });
+    }
+
+    if (exportResolution) {
+      exportResolution.addEventListener('change', (e) => {
+        state.exportResolution = e.target.value;
+      });
+    }
+
+    if (startExportBtn) {
+      startExportBtn.addEventListener('click', async () => {
+        if (state.cachedFrames.length === 0) {
+          showToast('請先載入視訊', 'error');
+          return;
+        }
+
+        startExportBtn.disabled = true;
+        startExportBtn.classList.add('opacity-50');
+        if (exportProgressCard) {
+          exportProgressCard.classList.remove('hidden');
+          exportProgressCard.classList.add('flex');
+        }
+        if (resultsCard) resultsCard.classList.add('hidden');
+        state.generatedClips = [];
+
+        try {
+          const boxes = getCellBoxes(state.videoNaturalWidth, state.videoNaturalHeight);
+          const totalClips = boxes.length;
+
+          for (let i = 0; i < totalClips; i++) {
+            const box = boxes[i];
+            const clipNum = i + 1;
+            const pct = Math.round((i / totalClips) * 100);
+            if (progressBarFill) progressBarFill.style.width = `${pct}%`;
+            if (progressPercentage) progressPercentage.textContent = `${pct}%`;
+            if (progressStatusText) {
+              progressStatusText.textContent = `正在生成第 ${clipNum}/${totalClips} 個貼圖單元 (去背處理與 LINE 官方 APNG 編碼)...`;
+            }
+
+            const apngBlob = await renderStickerApng(box, state.exportResolution, state.fitMode);
+            state.generatedClips.push({
+              index: clipNum,
+              lineFileName: `${String(clipNum).padStart(2, '0')}.png`,
+              apngBlob: apngBlob
+            });
+          }
+
+          if (mainSourceSelect && tabSourceSelect) {
+            let optionsHtml = '';
+            for (let b = 1; b <= totalClips; b++) {
+              optionsHtml += `<option value="${b}">第 ${String(b).padStart(2, '0')} 格</option>`;
+            }
+            mainSourceSelect.innerHTML = optionsHtml;
+            tabSourceSelect.innerHTML = optionsHtml;
+          }
+
+          await regenerateSelectedMainCover(1);
+          await regenerateSelectedTabIcon(1);
+
+          if (progressBarFill) progressBarFill.style.width = '100%';
+          if (progressPercentage) progressPercentage.textContent = '100%';
+
+          setTimeout(() => {
+            if (exportProgressCard) {
+              exportProgressCard.classList.add('hidden');
+              exportProgressCard.classList.remove('flex');
+            }
+            startExportBtn.disabled = false;
+            startExportBtn.classList.remove('opacity-50');
+            displayResults();
+            showToast(`🎉 全部 ${totalClips} 個動態貼圖已完美生成！`, 'success');
+          }, 400);
+
+        } catch (err) {
+          console.error(err);
+          showToast('分割導出失敗: ' + err.message, 'error');
+          if (exportProgressCard) {
+            exportProgressCard.classList.add('hidden');
+            exportProgressCard.classList.remove('flex');
+          }
+          startExportBtn.disabled = false;
+          startExportBtn.classList.remove('opacity-50');
+        }
+      });
+    }
+
+    function displayResults() {
+      if (!resultsCard || !resultsGrid) return;
+      resultsCard.classList.remove('hidden');
+      resultsCard.classList.add('flex');
+      resultsGrid.innerHTML = '';
+
+      state.generatedClips.forEach(clip => {
+        const card = document.createElement('div');
+        card.className = 'bg-white border border-pink-200 rounded-2xl p-3 flex flex-col items-center gap-2.5 shadow-xs hover:shadow-md transition';
+
+        const apngUrl = URL.createObjectURL(clip.apngBlob);
+        const sizeKb = (clip.apngBlob.size / 1024).toFixed(1);
+
+        card.innerHTML = `
+          <div class="relative w-full aspect-square rounded-xl overflow-hidden checkerboard shadow-inner flex items-center justify-center">
+            <img src="${apngUrl}" class="w-full h-full object-contain" alt="${clip.lineFileName}">
+            <span class="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-black/70 text-white font-mono text-[10px] font-bold">
+              ${clip.lineFileName}
+            </span>
+          </div>
+          <div class="w-full flex items-center justify-between text-xs">
+            <span class="font-bold text-[#3D3A45] truncate">${clip.lineFileName}</span>
+            <span class="text-[10px] font-mono text-pink-600 font-bold">${sizeKb} KB</span>
+          </div>
+          <a href="${apngUrl}" download="${clip.lineFileName}" class="w-full py-1.5 px-2 rounded-xl bg-pink-50 hover:bg-pink-100 text-pink-700 font-bold text-xs flex items-center justify-center gap-1 transition border border-pink-200">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            下載 ${clip.lineFileName}
+          </a>
+        `;
+        resultsGrid.appendChild(card);
+      });
+
+      resultsCard.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    if (downloadLineZipBtn) {
+      downloadLineZipBtn.addEventListener('click', async () => {
+        const validApngs = state.generatedClips.filter(c => !!c.apngBlob);
+        if (validApngs.length === 0) {
+          showToast('目前尚無已生成的動態貼圖！', 'error');
+          return;
+        }
+
+        downloadLineZipBtn.disabled = true;
+        downloadLineZipBtn.classList.add('opacity-50');
+        showToast('正在依照 LINE 官方標準打包 ZIP...', 'info');
+
+        try {
+          const zip = new JSZip();
+
+          validApngs.forEach((clip, idx) => {
+            const fileName = `${String(idx + 1).padStart(2, '0')}.png`;
+            zip.file(fileName, clip.apngBlob);
+          });
+
+          if (!state.lineMainBlob) {
+            const selectedIdx = mainSourceSelect ? parseInt(mainSourceSelect.value, 10) : 1;
+            await regenerateSelectedMainCover(selectedIdx);
+          }
+          if (state.lineMainBlob) zip.file('main.png', state.lineMainBlob);
+
+          if (!state.lineTabBlob) {
+            const selectedIdx = tabSourceSelect ? parseInt(tabSourceSelect.value, 10) : 1;
+            await regenerateSelectedTabIcon(selectedIdx);
+          }
+          if (state.lineTabBlob) zip.file('tab.png', state.lineTabBlob);
+
+          const zipBlob = await zip.generateAsync({
+            type: 'blob',
+            compression: 'DEFLATE',
+            compressionOptions: { level: 6 }
+          });
+
+          saveAs(zipBlob, 'line_animation_stickers.zip');
+          showToast('🎉 LINE 官方審核合規 ZIP 檔下載成功！無子目錄平鋪結構！', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('ZIP 打包失敗: ' + err.message, 'error');
+        } finally {
+          downloadLineZipBtn.disabled = false;
+          downloadLineZipBtn.classList.remove('opacity-50');
+        }
+      });
+    }
+
+    if (mainSourceSelect) {
+      mainSourceSelect.addEventListener('change', async (e) => {
+        const val = parseInt(e.target.value, 10);
+        await regenerateSelectedMainCover(val);
+        showToast(`已更新 main.png 封面來源為第 ${String(val).padStart(2, '0')} 格`, 'success');
+      });
+    }
+
+    if (tabSourceSelect) {
+      tabSourceSelect.addEventListener('change', async (e) => {
+        const val = parseInt(e.target.value, 10);
+        await regenerateSelectedTabIcon(val);
+        showToast(`已更新 tab.png 標籤來源為第 ${String(val).padStart(2, '0')} 格`, 'success');
+      });
+    }
+
+    if (downloadMainBtn) {
+      downloadMainBtn.addEventListener('click', async () => {
+        if (!state.lineMainBlob) {
+          const selectedIdx = mainSourceSelect ? parseInt(mainSourceSelect.value, 10) : 1;
+          await regenerateSelectedMainCover(selectedIdx);
+        }
+        if (state.lineMainBlob) {
+          saveAs(state.lineMainBlob, 'main.png');
+          showToast('已下載 main.png (240×240 APNG 封面)');
+        }
+      });
+    }
+
+    if (downloadTabBtn) {
+      downloadTabBtn.addEventListener('click', async () => {
+        if (!state.lineTabBlob) {
+          const selectedIdx = tabSourceSelect ? parseInt(tabSourceSelect.value, 10) : 1;
+          await regenerateSelectedTabIcon(selectedIdx);
+        }
+        if (state.lineTabBlob) {
+          saveAs(state.lineTabBlob, 'tab.png');
+          showToast('已下載 tab.png (96×74 純靜態 PNG 標籤)');
+        }
+      });
+    }
+
+    // 拖曳上傳監聽
+    if (dropzone) {
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('border-pink-500', 'bg-pink-100/50');
+      });
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('border-pink-500', 'bg-pink-100/50');
+      });
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('border-pink-500', 'bg-pink-100/50');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          const file = e.dataTransfer.files[0];
+          loadVideoUrl(URL.createObjectURL(file), file.name);
+        }
+      });
+      dropzone.addEventListener('click', () => fileInput.click());
+    }
+
+    if (fileInput) {
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          const file = e.target.files[0];
+          loadVideoUrl(URL.createObjectURL(file), file.name);
+        }
+      });
+    }
+
+    // 示範動畫按鈕
+    if (demoBtn) {
+      demoBtn.addEventListener('click', async () => {
+        showToast('正在合成馬卡龍風格示範動畫...', 'info');
+        try {
+          const demoCanvas = document.createElement('canvas');
+          const dW = 1280;
+          const dH = Math.round(1280 * (state.rows / state.cols));
+          demoCanvas.width = dW;
+          demoCanvas.height = dH;
+          const ctx = demoCanvas.getContext('2d');
+
+          const stream = demoCanvas.captureStream(30);
+          let mime = 'video/mp4;codecs=avc1';
+          if (!MediaRecorder.isTypeSupported(mime)) {
+            mime = 'video/webm;codecs=vp9';
+            if (!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
+          }
+
+          const recorder = new MediaRecorder(stream, { mimeType: mime });
+          const chunks = [];
+          recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+
+          const emojiPool = ["💖", "🌸", "🍰", "🍭", "🧸", "✨", "☕", "🎉", "🍬", "🧁", "🍓", "🍧"];
+          const phrasePool = ["太甜啦", "好幸福", "下午茶", "好讚喔", "萌萌噠", "亮晶晶", "放鬆下", "歡呼啦", "棒棒的", "小確幸", "甜蜜蜜", "好開心"];
+
+          let frame = 0;
+          const totalFrames = 60; // 2 秒 @ 30fps
+          const cellW = dW / state.cols;
+          const cellH = dH / state.rows;
+
+          recorder.start();
+
+          const interval = setInterval(() => {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, dW, dH);
+
+            for (let row = 0; row < state.rows; row++) {
+              for (let col = 0; col < state.cols; col++) {
+                const idx = row * state.cols + col;
+                const emoji = emojiPool[idx % emojiPool.length];
+                const text = phrasePool[idx % phrasePool.length];
+                const x = col * cellW;
+                const y = row * cellH;
+
+                const bounce = Math.sin((frame + idx * 6) * 0.15) * 6;
+
+                ctx.font = `${Math.min(50, Math.floor(cellH * 0.35))}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(emoji, x + cellW / 2, y + cellH / 2 + bounce);
+
+                ctx.font = `bold ${Math.min(22, Math.floor(cellH * 0.16))}px sans-serif`;
+                ctx.fillStyle = '#4A4E69';
+                ctx.fillText(text, x + cellW / 2, y + Math.min(35, cellH * 0.22));
+
+                ctx.font = '11px monospace';
+                ctx.fillStyle = '#F472B6';
+                ctx.fillText(`#${idx + 1}`, x + 18, y + cellH - 12);
+              }
+            }
+
+            frame++;
+            if (frame >= totalFrames) {
+              clearInterval(interval);
+              recorder.stop();
+            }
+          }, 1000 / 30);
+
+          recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: mime });
+            loadVideoUrl(URL.createObjectURL(blob), `demo_macaron_${state.cols}x${state.rows}.mp4`);
+          };
+        } catch (err) {
+          console.error(err);
+          showToast('示範動畫生成失敗: ' + err.message, 'error');
+        }
+      });
+    }
+
+    // 初始化網格
+    setGridDimensions(4, 2);
+  </script>
+</body>
+</html>
