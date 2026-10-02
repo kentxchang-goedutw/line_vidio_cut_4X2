@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>4x2 影片八分割裁切工具 (正方形 MP4 導出)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- mp4-muxer for high performance in-browser MP4 encoding -->
+  <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.4/build/mp4-muxer.min.js"></script>
+  <!-- JSZip for 1-click batch download -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    /* 自訂滾動條與細節特效 */
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .split-line-v { cursor: col-resize; }
+    .split-line-h { cursor: row-resize; }
+    .checkerboard {
+      background-image: linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+                        linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+                        linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- 頂部導航列 -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-100">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+            4×2 影片八分割裁切工具
+            <span class="text-xs px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-semibold border border-indigo-200">1:1 正方形輸出</span>
+          </h1>
+          <p class="text-xs text-slate-500">純瀏覽器本機極速處理，支援拖曳微調分割線與一鍵 ZIP 打包</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="demoBtn" class="text-xs sm:text-sm font-medium px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition duration-150 flex items-center gap-1.5 border border-slate-300 shadow-sm">
+          <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          載入示範動態貼圖
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 主要操作區 -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col gap-6 w-full">
+    
+    <!-- 尚未上傳時的拖曳上傳區塊 -->
+    <div id="uploadDropzone" class="border-2 border-dashed border-indigo-300 hover:border-indigo-500 bg-indigo-50/40 hover:bg-indigo-50 transition rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer shadow-sm group">
+      <input type="file" id="videoFileInput" accept="video/mp4,video/webm,video/quicktime" class="hidden" />
+      <div class="w-16 h-16 mb-4 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition duration-200 shadow-inner">
+        <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+        </svg>
+      </div>
+      <h3 class="text-base font-semibold text-slate-800 mb-1">點擊此處或拖曳 4×2 動畫影片 (.mp4) 至此</h3>
+      <p class="text-xs text-slate-500 max-w-md mb-4">適用於類似微信/LINE/貼圖表情包之 4 列 2 行集合影片。純本機運算，影片絕不外傳。</p>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-white text-slate-600 border border-slate-200 shadow-xs">支援 MP4 / MOV / WebM</span>
+      </div>
+    </div>
+
+    <!-- 編輯器工作區 (預設隱藏，影片載入後顯示) -->
+    <div id="editorWorkspace" class="hidden flex-col gap-6">
+      
+      <!-- 控制列與設定 -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-4">
+        <!-- 左側：輔助控制 -->
+        <div class="flex items-center flex-wrap gap-2">
+          <button id="resetLinesBtn" class="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1.5 border border-slate-200">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            還原 4×2 等分
+          </button>
+
+          <!-- 播放 / 暫停 -->
+          <button id="playPauseBtn" class="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1.5 border border-slate-200">
+            <svg id="playIcon" class="w-3.5 h-3.5 text-indigo-600" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="pauseIcon" class="w-3.5 h-3.5 text-indigo-600 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            <span id="playText">播放影片</span>
+          </button>
+
+          <!-- 重新上傳 -->
+          <label for="videoFileInput" class="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer border border-slate-200 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            更換影片
+          </label>
+        </div>
+
+        <!-- 中間與右側：正方形擺放設定 -->
+        <div class="flex items-center flex-wrap gap-4 text-xs">
+          <!-- 填滿模式 -->
+          <div class="flex items-center gap-1.5">
+            <span class="font-medium text-slate-500">正方形排版：</span>
+            <div class="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200">
+              <button id="fitContainBtn" class="px-2.5 py-1 text-xs font-medium rounded-md bg-white text-indigo-600 shadow-sm transition">等比最大化留白 (Contain)</button>
+              <button id="fitCoverBtn" class="px-2.5 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition">填滿裁切 (Cover)</button>
+            </div>
+          </div>
+
+          <!-- 背景色選擇 -->
+          <div class="flex items-center gap-1.5">
+            <span class="font-medium text-slate-500">留白背景：</span>
+            <select id="bgChoiceSelect" class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs focus:ring-2 focus:ring-indigo-500 outline-none">
+              <option value="#ffffff" selected>純白 (推薦貼圖)</option>
+              <option value="#000000">純黑</option>
+              <option value="#f8fafc">淺灰白 (#F8FAFC)</option>
+              <option value="transparent">透明 (需播放器支援)</option>
+            </select>
+          </div>
+
+          <!-- 解析度選擇 -->
+          <div class="flex items-center gap-1.5">
+            <span class="font-medium text-slate-500">輸出尺寸：</span>
+            <select id="exportResolution" class="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs focus:ring-2 focus:ring-indigo-500 outline-none font-mono">
+              <option value="512" selected>512 × 512 px</option>
+              <option value="640">640 × 640 px</option>
+              <option value="720">720 × 720 px</option>
+              <option value="360">360 × 360 px (輕量)</option>
+            </select>
+          </div>
+
+          <!-- 開始分割按鈕 -->
+          <button id="startExportBtn" class="ml-auto px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs sm:text-sm shadow-md shadow-indigo-200 transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            開始分割導出 8 個 MP4
+          </button>
+        </div>
+      </div>
+
+      <!-- 互動視訊與裁切線容器 -->
+      <div class="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center">
+        <div class="w-full flex items-center justify-between mb-3 text-xs text-slate-500">
+          <span class="flex items-center gap-1 font-medium text-slate-700">
+            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            可直接用滑鼠拖動「橘黃色 / 藍色分割線」調整每個表情的擷取範圍
+          </span>
+          <span id="videoInfoBadge" class="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">-- × --</span>
+        </div>
+
+        <!-- 視訊容器 + 分割線圖層 -->
+        <div id="stageWrapper" class="relative inline-block border-2 border-slate-300 rounded-xl overflow-hidden shadow-lg select-none bg-slate-900 max-w-full">
+          <video id="sourceVideo" class="block max-w-full h-auto max-h-[65vh] object-contain pointer-events-none" playsinline loop muted></video>
+
+          <!-- 互動覆蓋層 (SVG & Lines) -->
+          <div id="overlayLayer" class="absolute inset-0 pointer-events-auto">
+            <!-- 8 個區域的標籤指示徽章 (由 JS 動態定位) -->
+            <div id="cellBadges" class="absolute inset-0 pointer-events-none"></div>
+
+            <!-- 水平分割線 1 條 (分成上、下 2 列) -->
+            <div id="hLine0" class="split-line-h absolute left-0 right-0 h-4 -mt-2 z-20 flex items-center justify-center group">
+              <div class="w-full h-1 bg-amber-400 group-hover:bg-amber-500 shadow-md transition-colors flex items-center justify-center">
+                <span class="px-2 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold shadow opacity-80 group-hover:opacity-100 flex items-center gap-1">
+                  ↔ 水平分隔線
+                </span>
+              </div>
+            </div>
+
+            <!-- 垂直分割線 3 條 (分成 4 行) -->
+            <div id="vLine0" class="split-line-v absolute top-0 bottom-0 w-4 -ml-2 z-20 flex items-center justify-center group">
+              <div class="w-1 h-full bg-indigo-500 group-hover:bg-indigo-600 shadow-md transition-colors flex items-center justify-center">
+                <span class="py-1 px-1 rounded bg-indigo-600 text-white text-[9px] font-bold shadow transform -rotate-90 opacity-80 group-hover:opacity-100 whitespace-nowrap">
+                  1/4
+                </span>
+              </div>
+            </div>
+
+            <div id="vLine1" class="split-line-v absolute top-0 bottom-0 w-4 -ml-2 z-20 flex items-center justify-center group">
+              <div class="w-1 h-full bg-indigo-500 group-hover:bg-indigo-600 shadow-md transition-colors flex items-center justify-center">
+                <span class="py-1 px-1 rounded bg-indigo-600 text-white text-[9px] font-bold shadow transform -rotate-90 opacity-80 group-hover:opacity-100 whitespace-nowrap">
+                  2/4 (中線)
+                </span>
+              </div>
+            </div>
+
+            <div id="vLine2" class="split-line-v absolute top-0 bottom-0 w-4 -ml-2 z-20 flex items-center justify-center group">
+              <div class="w-1 h-full bg-indigo-500 group-hover:bg-indigo-600 shadow-md transition-colors flex items-center justify-center">
+                <span class="py-1 px-1 rounded bg-indigo-600 text-white text-[9px] font-bold shadow transform -rotate-90 opacity-80 group-hover:opacity-100 whitespace-nowrap">
+                  3/4
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 視訊播放進度條 -->
+        <div class="w-full max-w-3xl mt-4 flex items-center gap-3">
+          <span id="currentTimeLabel" class="text-xs font-mono text-slate-500 w-10 text-right">0:00</span>
+          <input type="range" id="videoTimeline" min="0" max="100" value="0" step="0.1" class="flex-1 h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
+          <span id="durationLabel" class="text-xs font-mono text-slate-500 w-10">0:00</span>
+        </div>
+      </div>
+
+      <!-- 處理中進度指示 (匯出時顯示) -->
+      <div id="exportProgressCard" class="hidden bg-white p-6 rounded-2xl border border-indigo-200 shadow-lg flex-col gap-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin"></div>
+            <div>
+              <h4 id="progressStatusText" class="font-bold text-slate-800 text-sm">正在初始化裁切引擎...</h4>
+              <p class="text-xs text-slate-500">正在逐格提取並轉碼為標準正方形 MP4 檔案</p>
+            </div>
+          </div>
+          <span id="progressPercentage" class="text-lg font-extrabold font-mono text-indigo-600">0%</span>
+        </div>
+        <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
+          <div id="progressBarFill" class="bg-gradient-to-r from-indigo-500 to-violet-500 h-full rounded-full w-0 transition-all duration-200"></div>
+        </div>
+      </div>
+
+      <!-- 輸出結果區域 -->
+      <div id="resultsCard" class="hidden bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex-col gap-6">
+        <div class="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-100">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+              分割完成！8 個正方形 MP4 影片
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">點擊任意影片右下角可單獨下載，或點擊右側按鈕一鍵打包全部</p>
+          </div>
+          <button id="downloadZipBtn" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm shadow-md shadow-emerald-200 transition flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            一鍵打包下載 8 個 MP4 (ZIP)
+          </button>
+        </div>
+
+        <!-- 8 格成果網格 (4 列 x 2 行) -->
+        <div id="resultsGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <!-- 8 個成果卡片由 JavaScript 動態生成 -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 提示訊息浮層 (替代 alert) -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <script>
+    // 全域狀態
+    const state = {
+      videoSrc: null,
+      videoElement: document.getElementById('sourceVideo'),
+      videoNaturalWidth: 0,
+      videoNaturalHeight: 0,
+      duration: 0,
+      fitMode: 'contain', // 'contain' or 'cover'
+      bgColor: '#ffffff',
+      exportSize: 512,
+      // 分割比例 (0 到 1 之間)
+      // 4 列需要 3 條垂直線；2 行需要 1 條水平線
+      splitV: [0.25, 0.50, 0.75],
+      splitH: [0.50],
+      activeDrag: null, // { type: 'v'|'h', index: 0 }
+      generatedClips: [] // 儲存產生的 blob 及資訊
+    };
+
+    // DOM 元素引用
+    const dropzone = document.getElementById('uploadDropzone');
+    const fileInput = document.getElementById('videoFileInput');
+    const editorWorkspace = document.getElementById('editorWorkspace');
+    const stageWrapper = document.getElementById('stageWrapper');
+    const overlayLayer = document.getElementById('overlayLayer');
+    const cellBadges = document.getElementById('cellBadges');
+    const vLines = [
+      document.getElementById('vLine0'),
+      document.getElementById('vLine1'),
+      document.getElementById('vLine2')
+    ];
+    const hLines = [
+      document.getElementById('hLine0')
+    ];
+    const videoTimeline = document.getElementById('videoTimeline');
+    const currentTimeLabel = document.getElementById('currentTimeLabel');
+    const durationLabel = document.getElementById('durationLabel');
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const playIcon = document.getElementById('playIcon');
+    const pauseIcon = document.getElementById('pauseIcon');
+    const playText = document.getElementById('playText');
+    const resetLinesBtn = document.getElementById('resetLinesBtn');
+    const fitContainBtn = document.getElementById('fitContainBtn');
+    const fitCoverBtn = document.getElementById('fitCoverBtn');
+    const bgChoiceSelect = document.getElementById('bgChoiceSelect');
+    const exportResolution = document.getElementById('exportResolution');
+    const startExportBtn = document.getElementById('startExportBtn');
+    const exportProgressCard = document.getElementById('exportProgressCard');
+    const progressBarFill = document.getElementById('progressBarFill');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const progressStatusText = document.getElementById('progressStatusText');
+    const resultsCard = document.getElementById('resultsCard');
+    const resultsGrid = document.getElementById('resultsGrid');
+    const downloadZipBtn = document.getElementById('downloadZipBtn');
+    const videoInfoBadge = document.getElementById('videoInfoBadge');
+    const demoBtn = document.getElementById('demoBtn');
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      const colors = {
+        info: 'bg-slate-800 text-white border-slate-700',
+        success: 'bg-emerald-600 text-white border-emerald-500',
+        error: 'bg-rose-600 text-white border-rose-500'
+      };
+      toast.className = `px-4 py-2.5 rounded-xl text-xs font-semibold shadow-lg border flex items-center gap-2 transform transition-all duration-300 opacity-0 translate-y-3 pointer-events-auto ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        </svg>
+        <span>${message}</span>
+      `;
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('opacity-0', 'translate-y-3');
+      });
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-3');
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('border-indigo-600', 'bg-indigo-100/50');
+    });
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('border-indigo-600', 'bg-indigo-100/50');
+    });
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('border-indigo-600', 'bg-indigo-100/50');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      if (!file.type.startsWith('video/')) {
+        showToast('請上傳 MP4 或支援的影片檔案格式', 'error');
+        return;
+      }
+      const url = URL.createObjectURL(file);
+      loadVideoUrl(url, file.name);
+    }
+
+    function loadVideoUrl(url, title = 'video.mp4') {
+      const vid = state.videoElement;
+      vid.src = url;
+      vid.load();
+      vid.onloadedmetadata = () => {
+        state.videoNaturalWidth = vid.videoWidth;
+        state.videoNaturalHeight = vid.videoHeight;
+        state.duration = vid.duration || 1;
+        videoInfoBadge.textContent = `${vid.videoWidth} × ${vid.videoHeight} px | ${state.duration.toFixed(1)} 秒`;
+        durationLabel.textContent = formatTime(state.duration);
+        editorWorkspace.classList.remove('hidden');
+        dropzone.classList.add('hidden');
+        resultsCard.classList.add('hidden');
+        updateLinePositions();
+        showToast(`影片已載入：${title}`, 'success');
+      };
+    }
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = Math.floor(sec % 60);
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    demoBtn.addEventListener('click', async () => {
+      showToast('正在合成 4×2 動態示範貼圖影片...', 'info');
+      try {
+        const demoCanvas = document.createElement('canvas');
+        const dW = 1280;
+        const dH = 640;
+        demoCanvas.width = dW;
+        demoCanvas.height = dH;
+        const ctx = demoCanvas.getContext('2d');
+
+        const stream = demoCanvas.captureStream(30);
+        const mime = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ? 'video/mp4;codecs=avc1' : 'video/webm';
+        const recorder = new MediaRecorder(stream, { mimeType: mime });
+        const chunks = [];
+        recorder.ondataavailable = e => chunks.push(e.data);
+        
+        const emojiList = [
+          { text: "想太多", icon: "🤔", bg: "#fef3c7" },
+          { text: "生氣氣", icon: "😡", bg: "#fee2e2" },
+          { text: "有點累", icon: "😴", bg: "#e0e7ff" },
+          { text: "嚇到了", icon: "😱", bg: "#f3e8ff" },
+          { text: "超讚的", icon: "👍", bg: "#dcfce7" },
+          { text: "再見囉", icon: "👋", bg: "#ffedd5" },
+          { text: "超好吃", icon: "😋", bg: "#fce7f3" },
+          { text: "好飽喔", icon: "🥰", bg: "#ccfbf1" },
+        ];
+
+        let frame = 0;
+        const totalFrames = 60; // 2 秒 (30 fps)
+        const cellW = dW / 4;
+        const cellH = dH / 2;
+
+        recorder.start();
+
+        const interval = setInterval(() => {
+          // 清空畫布
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, dW, dH);
+
+          // 繪製 8 格示範動畫
+          for (let row = 0; row < 2; row++) {
+            for (let col = 0; col < 4; col++) {
+              const idx = row * 4 + col;
+              const item = emojiList[idx];
+              const x = col * cellW;
+              const y = row * cellH;
+
+              // 邊界微淡色
+              ctx.fillStyle = item.bg;
+              ctx.fillRect(x + 6, y + 6, cellW - 12, cellH - 12);
+
+              // 輕微呼吸跳動效果
+              const bounce = Math.sin((frame + idx * 8) * 0.15) * 8;
+
+              // 表情
+              ctx.font = '70px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(item.icon, x + cellW / 2, y + cellH / 2 + bounce);
+
+              // 標題文字
+              ctx.font = 'bold 28px sans-serif';
+              ctx.fillStyle = '#1e293b';
+              ctx.fillText(item.text, x + cellW / 2, y + 45);
+
+              // 格子編號
+              ctx.font = '14px monospace';
+              ctx.fillStyle = '#64748b';
+              ctx.fillText(`#${idx + 1}`, x + 25, y + cellH - 20);
+            }
+          }
+
+          frame++;
+          if (frame >= totalFrames) {
+            clearInterval(interval);
+            recorder.stop();
+          }
+        }, 1000 / 30);
+
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: mime });
+          const url = URL.createObjectURL(blob);
+          loadVideoUrl(url, '4x2_demo_sticker.mp4');
+        };
+      } catch (err) {
+        console.error(err);
+        showToast('示範影片生成失敗', 'error');
+      }
+    });
+
+    function updateLinePositions() {
+      // 3 條垂直線 (splitV[0], splitV[1], splitV[2])
+      state.splitV.forEach((pct, idx) => {
+        vLines[idx].style.left = `${pct * 100}%`;
+      });
+      // 1 條水平線 (splitH[0])
+      state.splitH.forEach((pct, idx) => {
+        hLines[idx].style.top = `${pct * 100}%`;
+      });
+
+      renderCellBadges();
+    }
+
+    function renderCellBadges() {
+      cellBadges.innerHTML = '';
+      const xs = [0, ...state.splitV, 1];
+      const ys = [0, ...state.splitH, 1];
+
+      for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 4; c++) {
+          const idx = r * 4 + c + 1;
+          const xStart = xs[c];
+          const xEnd = xs[c + 1];
+          const yStart = ys[r];
+          const yEnd = ys[r + 1];
+
+          const badge = document.createElement('div');
+          badge.className = 'absolute px-2 py-0.5 rounded-md bg-slate-900/60 text-white font-mono text-[11px] backdrop-blur-xs flex items-center gap-1 border border-white/20 select-none shadow';
+          badge.style.left = `${xStart * 100 + 1}%`;
+          badge.style.top = `${yStart * 100 + 1}%`;
+          badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>#${idx}`;
+          cellBadges.appendChild(badge);
+        }
+      }
+    }
+
+    // 拖曳事件綁定
+    function startDrag(e, type, index) {
+      e.preventDefault();
+      state.activeDrag = { type, index };
+      document.body.style.cursor = type === 'v' ? 'col-resize' : 'row-resize';
+      window.addEventListener('mousemove', onDragging);
+      window.addEventListener('touchmove', onDragging, { passive: false });
+      window.addEventListener('mouseup', stopDrag);
+      window.addEventListener('touchend', stopDrag);
+    }
+
+    function onDragging(e) {
+      if (!state.activeDrag) return;
+      e.preventDefault();
+
+      const rect = stageWrapper.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      if (state.activeDrag.type === 'v') {
+        const idx = state.activeDrag.index;
+        let pct = (clientX - rect.left) / rect.width;
+        // 限制拖曳範圍避免交叉重疊
+        const minPct = idx === 0 ? 0.05 : state.splitV[idx - 1] + 0.05;
+        const maxPct = idx === 2 ? 0.95 : state.splitV[idx + 1] - 0.05;
+        pct = Math.max(minPct, Math.min(maxPct, pct));
+        state.splitV[idx] = pct;
+      } else if (state.activeDrag.type === 'h') {
+        let pct = (clientY - rect.top) / rect.height;
+        pct = Math.max(0.1, Math.min(0.9, pct));
+        state.splitH[0] = pct;
+      }
+
+      updateLinePositions();
+    }
+
+    function stopDrag() {
+      state.activeDrag = null;
+      document.body.style.cursor = '';
+      window.removeEventListener('mousemove', onDragging);
+      window.removeEventListener('touchmove', onDragging);
+      window.removeEventListener('mouseup', stopDrag);
+      window.removeEventListener('touchend', stopDrag);
+    }
+
+    // 綁定線段事件
+    vLines.forEach((el, i) => {
+      el.addEventListener('mousedown', (e) => startDrag(e, 'v', i));
+      el.addEventListener('touchstart', (e) => startDrag(e, 'v', i), { passive: false });
+    });
+    hLines.forEach((el, i) => {
+      el.addEventListener('mousedown', (e) => startDrag(e, 'h', i));
+      el.addEventListener('touchstart', (e) => startDrag(e, 'h', i), { passive: false });
+    });
+
+    // 還原等比例按鈕
+    resetLinesBtn.addEventListener('click', () => {
+      state.splitV = [0.25, 0.50, 0.75];
+      state.splitH = [0.50];
+      updateLinePositions();
+      showToast('已重設為標準 4×2 等分割', 'info');
+    });
+
+    playPauseBtn.addEventListener('click', () => {
+      const vid = state.videoElement;
+      if (vid.paused) {
+        vid.play();
+        playIcon.classList.add('hidden');
+        pauseIcon.classList.remove('hidden');
+        playText.textContent = '暫停';
+      } else {
+        vid.pause();
+        playIcon.classList.remove('hidden');
+        pauseIcon.classList.add('hidden');
+        playText.textContent = '播放影片';
+      }
+    });
+
+    state.videoElement.addEventListener('timeupdate', () => {
+      const vid = state.videoElement;
+      if (!vid.duration) return;
+      videoTimeline.value = (vid.currentTime / vid.duration) * 100;
+      currentTimeLabel.textContent = formatTime(vid.currentTime);
+    });
+
+    videoTimeline.addEventListener('input', (e) => {
+      const vid = state.videoElement;
+      if (!vid.duration) return;
+      vid.currentTime = (e.target.value / 100) * vid.duration;
+    });
+
+    // 模式切換
+    fitContainBtn.addEventListener('click', () => {
+      state.fitMode = 'contain';
+      fitContainBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md bg-white text-indigo-600 shadow-sm transition';
+      fitCoverBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition';
+      showToast('已設定為等比留白 (Contain)', 'info');
+    });
+
+    fitCoverBtn.addEventListener('click', () => {
+      state.fitMode = 'cover';
+      fitCoverBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md bg-white text-indigo-600 shadow-sm transition';
+      fitContainBtn.className = 'px-2.5 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-900 transition';
+      showToast('已設定為等比裁切填滿 (Cover)', 'info');
+    });
+
+    bgChoiceSelect.addEventListener('change', (e) => {
+      state.bgColor = e.target.value;
+    });
+
+    exportResolution.addEventListener('change', (e) => {
+      state.exportSize = parseInt(e.target.value, 10);
+    });
+
+    function getCellBoxes(vidWidth, vidHeight) {
+      const xs = [0, ...state.splitV.map(v => Math.round(v * vidWidth)), vidWidth];
+      const ys = [0, ...state.splitH.map(h => Math.round(h * vidHeight)), vidHeight];
+      const boxes = [];
+
+      for (let r = 0; r < 2; r++) {
+        for (let c = 0; c < 4; c++) {
+          const sx = xs[c];
+          const sy = ys[r];
+          const sw = xs[c + 1] - sx;
+          const sh = ys[r + 1] - sy;
+          boxes.push({ index: r * 4 + c + 1, row: r, col: c, sx, sy, sw, sh });
+        }
+      }
+      return boxes;
+    }
+
+    // 將每個格子的裁切區域，等比例置中並渲染至正方形畫布
+    function drawFitFrame(ctx, sourceVid, box, targetSquareSize, mode, bgColor) {
+      // 清空或塗底色
+      if (bgColor === 'transparent') {
+        ctx.clearRect(0, 0, targetSquareSize, targetSquareSize);
+      } else {
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, targetSquareSize, targetSquareSize);
+      }
+
+      const { sx, sy, sw, sh } = box;
+      if (sw <= 0 || sh <= 0) return;
+
+      let dw, dh, dx, dy;
+      const srcAspect = sw / sh;
+
+      if (mode === 'contain') {
+        // 等比例最大化放入正方形內 (留白)
+        if (srcAspect >= 1) {
+          dw = targetSquareSize;
+          dh = targetSquareSize / srcAspect;
+          dx = 0;
+          dy = (targetSquareSize - dh) / 2;
+        } else {
+          dh = targetSquareSize;
+          dw = targetSquareSize * srcAspect;
+          dx = (targetSquareSize - dw) / 2;
+          dy = 0;
+        }
+      } else {
+        // cover 填滿正方形裁切
+        if (srcAspect >= 1) {
+          dh = targetSquareSize;
+          dw = targetSquareSize * srcAspect;
+          dx = (targetSquareSize - dw) / 2;
+          dy = 0;
+        } else {
+          dw = targetSquareSize;
+          dh = targetSquareSize / srcAspect;
+          dx = 0;
+          dy = (targetSquareSize - dh) / 2;
+        }
+      }
+
+      ctx.drawImage(sourceVid, sx, sy, sw, sh, dx, dy, dw, dh);
+    }
+
+    startExportBtn.addEventListener('click', async () => {
+      const vid = state.videoElement;
+      if (!vid.duration || vid.duration <= 0) {
+        showToast('請先載入或上傳影片', 'error');
+        return;
+      }
+
+      // 暫停原預覽播放
+      vid.pause();
+      playIcon.classList.remove('hidden');
+      pauseIcon.classList.add('hidden');
+      playText.textContent = '播放影片';
+
+      startExportBtn.disabled = true;
+      startExportBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      exportProgressCard.classList.remove('hidden');
+      resultsCard.classList.add('hidden');
+      resultsGrid.innerHTML = '';
+      state.generatedClips = [];
+
+      try {
+        const boxes = getCellBoxes(state.videoNaturalWidth, state.videoNaturalHeight);
+        const squareSize = state.exportSize;
+        const totalClips = boxes.length; // 8
+
+        // 檢查瀏覽器是否支援 WebCodecs + MP4-Muxer
+        const hasWebCodecs = typeof VideoEncoder !== 'undefined';
+        
+        for (let i = 0; i < totalClips; i++) {
+          const box = boxes[i];
+          const clipNum = i + 1;
+          const pct = Math.round((i / totalClips) * 100);
+          progressBarFill.style.width = `${pct}%`;
+          progressPercentage.textContent = `${pct}%`;
+          progressStatusText.textContent = `正在生成第 ${clipNum}/8 個正方形影片 (第 ${box.row + 1} 列，第 ${box.col + 1} 行)...`;
+
+          let mp4Blob;
+          if (hasWebCodecs) {
+            mp4Blob = await renderClipWithWebCodecs(vid, box, squareSize, state.fitMode, state.bgColor);
+          } else {
+            mp4Blob = await renderClipWithMediaRecorder(vid, box, squareSize, state.fitMode, state.bgColor);
+          }
+
+          state.generatedClips.push({
+            index: clipNum,
+            blob: mp4Blob,
+            name: `sticker_clip_${clipNum}.mp4`
+          });
+        }
+
+        // 完成進度
+        progressBarFill.style.width = '100%';
+        progressPercentage.textContent = '100%';
+        progressStatusText.textContent = '8 個正方形 MP4 影片全部生成完畢！';
+
+        setTimeout(() => {
+          exportProgressCard.classList.add('hidden');
+          startExportBtn.disabled = false;
+          startExportBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+          displayResults();
+          showToast('8 個影片全部裁切完成！', 'success');
+        }, 500);
+
+      } catch (err) {
+        console.error('Export Error:', err);
+        showToast('處理過程發生錯誤：' + err.message, 'error');
+        exportProgressCard.classList.add('hidden');
+        startExportBtn.disabled = false;
+        startExportBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    });
+
+    async function renderClipWithWebCodecs(sourceVid, box, size, fitMode, bgColor) {
+      return new Promise(async (resolve, reject) => {
+        try {
+          const fps = 30;
+          const duration = sourceVid.duration;
+          const totalFrames = Math.max(1, Math.floor(duration * fps));
+          
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+          // 建立 MP4 Muxer
+          const muxer = new Mp4Muxer.Muxer({
+            target: new Mp4Muxer.ArrayBufferTarget(),
+            video: {
+              codec: 'avc',
+              width: size,
+              height: size
+            },
+            fastStart: 'in-memory'
+          });
+
+          // 建立 VideoEncoder
+          const videoEncoder = new VideoEncoder({
+            output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+            error: (e) => reject(e)
+          });
+
+          await videoEncoder.configure({
+            codec: 'avc1.42001f', // Baseline 3.1
+            width: size,
+            height: size,
+            bitrate: 2_500_000, // 2.5 Mbps
+            framerate: fps
+          });
+
+          // 逐幀抽取與編碼 (Seek-and-Draw)
+          for (let f = 0; f < totalFrames; f++) {
+            const time = f / fps;
+            sourceVid.currentTime = time;
+            await new Promise(r => {
+              const onSeek = () => {
+                sourceVid.removeEventListener('seeked', onSeek);
+                r();
+              };
+              sourceVid.addEventListener('seeked', onSeek);
+            });
+
+            drawFitFrame(ctx, sourceVid, box, size, fitMode, bgColor);
+
+            const frame = new VideoFrame(canvas, {
+              timestamp: (f * 1_000_000) / fps,
+              duration: 1_000_000 / fps
+            });
+
+            videoEncoder.encode(frame, { keyFrame: f % 30 === 0 });
+            frame.close();
+          }
+
+          await videoEncoder.flush();
+          muxer.finalize();
+
+          const buffer = muxer.target.buffer;
+          const blob = new Blob([buffer], { type: 'video/mp4' });
+          resolve(blob);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    async function renderClipWithMediaRecorder(sourceVid, box, size, fitMode, bgColor) {
+      return new Promise((resolve, reject) => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = size;
+          canvas.height = size;
+          const ctx = canvas.getContext('2d');
+
+          const fps = 30;
+          const stream = canvas.captureStream(fps);
+          const mime = MediaRecorder.isTypeSupported('video/mp4;codecs=avc1') ? 'video/mp4;codecs=avc1' : 'video/webm';
+          const recorder = new MediaRecorder(stream, { mimeType: mime });
+          const chunks = [];
+
+          recorder.ondataavailable = e => {
+            if (e.data.size > 0) chunks.push(e.data);
+          };
+
+          recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: mime });
+            resolve(blob);
+          };
+
+          sourceVid.currentTime = 0;
+          sourceVid.play();
+          recorder.start();
+
+          const drawLoop = () => {
+            if (sourceVid.ended || sourceVid.currentTime >= sourceVid.duration - 0.05) {
+              sourceVid.pause();
+              recorder.stop();
+              return;
+            }
+            drawFitFrame(ctx, sourceVid, box, size, fitMode, bgColor);
+            requestAnimationFrame(drawLoop);
+          };
+
+          requestAnimationFrame(drawLoop);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    function displayResults() {
+      resultsCard.classList.remove('hidden');
+      resultsGrid.innerHTML = '';
+
+      state.generatedClips.forEach(clip => {
+        const url = URL.createObjectURL(clip.blob);
+        const card = document.createElement('div');
+        card.className = 'bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col items-center gap-2.5 shadow-xs hover:shadow-md transition';
+
+        card.innerHTML = `
+          <div class="relative w-full aspect-square rounded-lg overflow-hidden bg-slate-900 checkerboard shadow-inner flex items-center justify-center">
+            <video src="${url}" class="w-full h-full object-contain" loop autoplay muted playsinline></video>
+            <span class="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/70 text-white font-mono text-[10px] font-bold">
+              #${clip.index}
+            </span>
+          </div>
+          <div class="w-full flex items-center justify-between text-xs">
+            <span class="font-medium text-slate-700 truncate">${clip.name}</span>
+            <span class="text-[10px] font-mono text-slate-400">${(clip.blob.size / 1024).toFixed(1)} KB</span>
+          </div>
+          <a href="${url}" download="${clip.name}" class="w-full py-1.5 px-3 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 font-semibold text-xs flex items-center justify-center gap-1.5 transition border border-indigo-200">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            下載此影片
+          </a>
+        `;
+
+        resultsGrid.appendChild(card);
+      });
+
+      // 平滑滾動至結果
+      resultsCard.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    downloadZipBtn.addEventListener('click', async () => {
+      if (!state.generatedClips.length) return;
+      downloadZipBtn.disabled = true;
+      downloadZipBtn.classList.add('opacity-50');
+      showToast('正在打包 8 個影片為 ZIP...', 'info');
+
+      try {
+        const zip = new JSZip();
+        state.generatedClips.forEach(clip => {
+          zip.file(clip.name, clip.blob);
+        });
+
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const downloadUrl = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `stickers_4x2_square_split.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
+
+        showToast('ZIP 打包下載已開始！', 'success');
+      } catch (err) {
+        console.error(err);
+        showToast('ZIP 打包失敗', 'error');
+      } finally {
+        downloadZipBtn.disabled = false;
+        downloadZipBtn.classList.remove('opacity-50');
+      }
+    });
+
+  </script>
+</body>
+</html>
