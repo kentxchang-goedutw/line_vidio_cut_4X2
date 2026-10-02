@@ -47,7 +47,14 @@
           <p class="text-xs text-slate-500">純瀏覽器本機極速處理，支援拖曳微調分割線與一鍵 ZIP 打包</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-3">
+        <a href="https://kentxchang.blogspot.tw" target="_blank" rel="noopener noreferrer" class="hidden sm:inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-medium px-2.5 py-1.5 rounded-lg hover:bg-indigo-50 transition border border-transparent hover:border-indigo-200">
+          <span>Made by</span>
+          <span class="font-bold underline decoration-indigo-300 underline-offset-2">阿剛老師</span>
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+        </a>
         <button id="demoBtn" class="text-xs sm:text-sm font-medium px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition duration-150 flex items-center gap-1.5 border border-slate-300 shadow-sm">
           <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
@@ -255,6 +262,36 @@
       </div>
     </div>
   </main>
+
+  <!-- 頁尾署名與 CC 授權資訊 -->
+  <footer class="mt-auto border-t border-slate-200 bg-white py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+      <div class="flex flex-col items-center sm:items-start gap-1">
+        <p class="text-sm text-slate-700 font-medium flex items-center gap-1.5">
+          <span>Made by</span>
+          <a href="https://kentxchang.blogspot.tw" target="_blank" rel="noopener noreferrer" class="font-bold text-indigo-600 hover:text-indigo-800 underline decoration-indigo-300 hover:decoration-indigo-600 transition flex items-center gap-1">
+            阿剛老師
+            <svg class="w-3.5 h-3.5 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        </p>
+        <p class="text-xs text-slate-500">
+          提供動態貼圖創作者、教育工作者與自媒體快速分割影片之開源工具
+        </p>
+      </div>
+
+      <!-- CC 授權資訊區塊 -->
+      <div class="flex flex-col sm:flex-row items-center gap-2.5 text-xs text-slate-500 bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl">
+        <div class="flex items-center gap-1 font-semibold text-slate-700">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-bold">CC</span>
+          <span>BY-NC-SA 4.0</span>
+        </div>
+        <span class="hidden sm:inline text-slate-300">|</span>
+        <span>創用 CC 姓名標示-非商業性-相同方式分享 4.0 國際授權條款釋出</span>
+      </div>
+    </div>
+  </footer>
 
   <!-- 提示訊息浮層 (替代 alert) -->
   <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
